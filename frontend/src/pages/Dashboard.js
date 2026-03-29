@@ -1,0 +1,390 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import axios from 'axios';
+import {
+  House,
+  TrendUp,
+  CalendarCheck,
+  Users,
+  CurrencyDollar,
+  SignOut,
+  Buildings,
+  Plus,
+  QrCode,
+  ChartBar
+} from '@phosphor-icons/react';
+import { motion } from 'framer-motion';
+
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+const Dashboard = () => {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('overview');
+  const [stats, setStats] = useState({
+    total_bookings: 0,
+    total_venues: 0,
+    total_customers: 0,
+    total_revenue: 0
+  });
+  const [venues, setVenues] = useState([]);
+  const [tenants, setTenants] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreateVenue, setShowCreateVenue] = useState(false);
+  const [showCreateTenant, setShowCreateTenant] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      navigate('/login');
+    } else {
+      fetchDashboardData();
+    }
+  }, [user, navigate]);
+
+  const fetchDashboardData = async () => {
+    try {
+      const [analyticsRes, venuesRes] = await Promise.all([
+        axios.get(`${API}/analytics/dashboard`, { withCredentials: true }),
+        axios.get(`${API}/venues`, { withCredentials: true })
+      ]);
+
+      setStats(analyticsRes.data);
+      setVenues(venuesRes.data);
+
+      if (user?.role === 'super_admin') {
+        const tenantsRes = await axios.get(`${API}/tenants`, { withCredentials: true });
+        setTenants(tenantsRes.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
+
+  const renderSidebar = () => (
+    <div className="fixed inset-y-0 left-0 z-40 w-64 bg-indigo-950 border-r border-indigo-900 text-stone-300">
+      <div className="p-6 border-b border-indigo-900">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-emerald flex items-center justify-center">
+            <span className="text-white font-bold text-xl">K</span>
+          </div>
+          <span className="text-2xl font-heading font-semibold text-white">Kelika</span>
+        </div>
+      </div>
+
+      <nav className="p-4 space-y-2">
+        <button
+          onClick={() => setActiveTab('overview')}
+          className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${
+            activeTab === 'overview'
+              ? 'bg-emerald-700 text-white'
+              : 'text-stone-400 hover:bg-indigo-900 hover:text-white'
+          }`}
+          data-testid="nav-overview"
+        >
+          <ChartBar className="w-5 h-5" weight="duotone" />
+          <span>Overview</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('venues')}
+          className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${
+            activeTab === 'venues'
+              ? 'bg-emerald-700 text-white'
+              : 'text-stone-400 hover:bg-indigo-900 hover:text-white'
+          }`}
+          data-testid="nav-venues"
+        >
+          <Buildings className="w-5 h-5" weight="duotone" />
+          <span>Venues</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('bookings')}
+          className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${
+            activeTab === 'bookings'
+              ? 'bg-emerald-700 text-white'
+              : 'text-stone-400 hover:bg-indigo-900 hover:text-white'
+          }`}
+          data-testid="nav-bookings"
+        >
+          <CalendarCheck className="w-5 h-5" weight="duotone" />
+          <span>Bookings</span>
+        </button>
+
+        {user?.role === 'super_admin' && (
+          <button
+            onClick={() => setActiveTab('tenants')}
+            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${
+              activeTab === 'tenants'
+                ? 'bg-emerald-700 text-white'
+                : 'text-stone-400 hover:bg-indigo-900 hover:text-white'
+            }`}
+            data-testid="nav-tenants"
+          >
+            <House className="w-5 h-5" weight="duotone" />
+            <span>Tenants</span>
+          </button>
+        )}
+      </nav>
+
+      <div className="absolute bottom-0 w-full p-4 border-t border-indigo-900">
+        <div className="mb-4 p-3 bg-indigo-900 rounded-xl">
+          <p className="text-xs text-stone-400">Signed in as</p>
+          <p className="text-sm text-white font-medium truncate">{user?.email}</p>
+          <p className="text-xs text-emerald-400 mt-1 capitalize">{user?.role?.replace('_', ' ')}</p>
+        </div>
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-orange-600 text-white rounded-xl hover:bg-orange-700 transition-all"
+          data-testid="logout-button"
+        >
+          <SignOut className="w-5 h-5" weight="bold" />
+          <span>Sign Out</span>
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderOverview = () => (
+    <div>
+      <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight text-indigo-950 mb-8">
+        Dashboard Overview
+      </h1>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6 hover-lift"
+          data-testid="stat-revenue"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <CurrencyDollar className="w-8 h-8 text-emerald-700" weight="duotone" />
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-700">Revenue</span>
+          </div>
+          <p className="text-3xl font-semibold text-indigo-950">${stats.total_revenue.toFixed(2)}</p>
+          <p className="text-sm text-stone-500 mt-1">Total earnings</p>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6 hover-lift"
+          data-testid="stat-bookings"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <CalendarCheck className="w-8 h-8 text-sky-700" weight="duotone" />
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-sky-700">Bookings</span>
+          </div>
+          <p className="text-3xl font-semibold text-indigo-950">{stats.total_bookings}</p>
+          <p className="text-sm text-stone-500 mt-1">Total bookings</p>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6 hover-lift"
+          data-testid="stat-venues"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <Buildings className="w-8 h-8 text-orange-600" weight="duotone" />
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-orange-600">Venues</span>
+          </div>
+          <p className="text-3xl font-semibold text-indigo-950">{stats.total_venues}</p>
+          <p className="text-sm text-stone-500 mt-1">Active venues</p>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6 hover-lift"
+          data-testid="stat-customers"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <Users className="w-8 h-8 text-indigo-800" weight="duotone" />
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-indigo-800">Customers</span>
+          </div>
+          <p className="text-3xl font-semibold text-indigo-950">{stats.total_customers}</p>
+          <p className="text-sm text-stone-500 mt-1">Total customers</p>
+        </motion.div>
+      </div>
+
+      <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6">
+        <h2 className="text-2xl font-medium text-indigo-950 mb-6">Quick Actions</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <button
+            onClick={() => setActiveTab('venues')}
+            className="flex items-center space-x-3 p-4 bg-emerald-50 border border-emerald-200 rounded-xl hover:bg-emerald-100 transition-all"
+            data-testid="quick-action-venues"
+          >
+            <Buildings className="w-6 h-6 text-emerald-700" weight="duotone" />
+            <span className="text-sm font-medium text-emerald-800">Manage Venues</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('bookings')}
+            className="flex items-center space-x-3 p-4 bg-sky-50 border border-sky-200 rounded-xl hover:bg-sky-100 transition-all"
+            data-testid="quick-action-bookings"
+          >
+            <CalendarCheck className="w-6 h-6 text-sky-700" weight="duotone" />
+            <span className="text-sm font-medium text-sky-800">View Bookings</span>
+          </button>
+          <button
+            className="flex items-center space-x-3 p-4 bg-orange-50 border border-orange-200 rounded-xl hover:bg-orange-100 transition-all"
+            data-testid="quick-action-qr"
+          >
+            <QrCode className="w-6 h-6 text-orange-600" weight="duotone" />
+            <span className="text-sm font-medium text-orange-800">Generate QR Codes</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderVenues = () => (
+    <div>
+      <div className="flex items-center justify-between mb-8">
+        <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight text-indigo-950">Venues</h1>
+        <button
+          onClick={() => setShowCreateVenue(true)}
+          className="inline-flex items-center justify-center px-6 py-3 text-sm font-medium text-white transition-all bg-emerald-700 rounded-xl hover:bg-emerald-800 hover:-translate-y-0.5 shadow-sm hover:shadow-md"
+          data-testid="create-venue-button"
+        >
+          <Plus className="w-5 h-5 mr-2" weight="bold" />
+          Add Venue
+        </button>
+      </div>
+
+      {venues.length === 0 ? (
+        <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-12 text-center">
+          <Buildings className="w-16 h-16 text-stone-400 mx-auto mb-4" weight="duotone" />
+          <h3 className="text-xl font-medium text-indigo-950 mb-2">No venues yet</h3>
+          <p className="text-base text-stone-600 mb-6">Create your first venue to start accepting bookings</p>
+          <button
+            onClick={() => setShowCreateVenue(true)}
+            className="inline-flex items-center justify-center px-6 py-3 text-sm font-medium text-white transition-all bg-emerald-700 rounded-xl hover:bg-emerald-800"
+            data-testid="empty-create-venue-button"
+          >
+            <Plus className="w-5 h-5 mr-2" weight="bold" />
+            Create First Venue
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {venues.map((venue, index) => (
+            <div
+              key={index}
+              className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden hover-lift"
+              data-testid={`venue-card-${index}`}
+            >
+              <img
+                src={venue.image_url || 'https://images.unsplash.com/photo-1765124540460-b884e248ac2b'}
+                alt={venue.name}
+                className="w-full h-48 object-cover"
+              />
+              <div className="p-6">
+                <h3 className="text-xl font-medium text-indigo-950 mb-2">{venue.name}</h3>
+                <p className="text-sm text-stone-600 mb-4">{venue.description}</p>
+                <p className="text-sm text-stone-500">{venue.address}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center">
+            <div className="w-16 h-16 border-4 border-emerald-700 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-stone-600">Loading dashboard...</p>
+          </div>
+        </div>
+      );
+    }
+
+    switch (activeTab) {
+      case 'overview':
+        return renderOverview();
+      case 'venues':
+        return renderVenues();
+      case 'bookings':
+        return (
+          <div>
+            <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight text-indigo-950 mb-8">Bookings</h1>
+            <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-12 text-center">
+              <CalendarCheck className="w-16 h-16 text-stone-400 mx-auto mb-4" weight="duotone" />
+              <h3 className="text-xl font-medium text-indigo-950 mb-2">Booking calendar coming soon</h3>
+              <p className="text-base text-stone-600">Manage all your bookings in one place</p>
+            </div>
+          </div>
+        );
+      case 'tenants':
+        return (
+          <div>
+            <div className="flex items-center justify-between mb-8">
+              <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight text-indigo-950">Tenants</h1>
+              <button
+                onClick={() => setShowCreateTenant(true)}
+                className="inline-flex items-center justify-center px-6 py-3 text-sm font-medium text-white transition-all bg-emerald-700 rounded-xl hover:bg-emerald-800 hover:-translate-y-0.5 shadow-sm hover:shadow-md"
+                data-testid="create-tenant-button"
+              >
+                <Plus className="w-5 h-5 mr-2" weight="bold" />
+                Add Tenant
+              </button>
+            </div>
+            <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-stone-50 border-b border-stone-200">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-sm font-medium text-indigo-950">Business Name</th>
+                    <th className="px-6 py-4 text-left text-sm font-medium text-indigo-950">Subdomain</th>
+                    <th className="px-6 py-4 text-left text-sm font-medium text-indigo-950">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tenants.map((tenant, index) => (
+                    <tr key={index} className="border-b border-stone-200 hover:bg-stone-50">
+                      <td className="px-6 py-4 text-sm text-stone-600">{tenant.business_name}</td>
+                      <td className="px-6 py-4 text-sm text-stone-600">{tenant.subdomain}.kelika.com</td>
+                      <td className="px-6 py-4">
+                        <span className="inline-flex px-3 py-1 text-xs font-medium rounded-full bg-emerald-50 text-emerald-800">
+                          {tenant.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      default:
+        return renderOverview();
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-stone-50">
+      {renderSidebar()}
+      <div className="ml-64 p-8">
+        {renderContent()}
+      </div>
+    </div>
+  );
+};
+
+export default Dashboard;

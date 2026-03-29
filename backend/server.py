@@ -622,36 +622,39 @@ async def get_customers(user: dict = Depends(get_current_user)):
 
 # ============ PAYMENT ENDPOINTS ============
 
+class PaymentCheckoutRequest(BaseModel):
+    booking_id: str
+    origin_url: str
+
 @api_router.post("/payments/checkout")
 async def create_checkout_session(
-    booking_id: str,
-    origin_url: str,
+    request: PaymentCheckoutRequest,
     user: dict = Depends(get_current_user)
 ):
-    booking = await db.bookings.find_one({"_id": ObjectId(booking_id)})
+    booking = await db.bookings.find_one({"_id": ObjectId(request.booking_id)})
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
     
     stripe_key = os.environ.get("STRIPE_API_KEY")
-    webhook_url = f"{origin_url}/api/webhook/stripe"
+    webhook_url = f"{request.origin_url}/api/webhook/stripe"
     stripe_checkout = StripeCheckout(api_key=stripe_key, webhook_url=webhook_url)
     
-    success_url = f"{origin_url}/booking-success?session_id={{CHECKOUT_SESSION_ID}}"
-    cancel_url = f"{origin_url}/booking-cancel"
+    success_url = f"{request.origin_url}/booking-success?session_id={{CHECKOUT_SESSION_ID}}"
+    cancel_url = f"{request.origin_url}/booking-cancel"
     
     checkout_request = CheckoutSessionRequest(
         amount=booking["total_price"],
         currency="usd",
         success_url=success_url,
         cancel_url=cancel_url,
-        metadata={"booking_id": booking_id}
+        metadata={"booking_id": request.booking_id}
     )
     
     session = await stripe_checkout.create_checkout_session(checkout_request)
     
     # Store payment transaction
     await db.payment_transactions.insert_one({
-        "booking_id": booking_id,
+        "booking_id": request.booking_id,
         "session_id": session.session_id,
         "amount": booking["total_price"],
         "currency": "usd",

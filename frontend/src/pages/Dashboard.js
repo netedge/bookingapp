@@ -20,6 +20,7 @@ import CreateTenantModal from '../components/CreateTenantModal';
 import CreateVenueModal from '../components/CreateVenueModal';
 import BookingCalendar from '../components/BookingCalendar';
 import AnalyticsCharts from '../components/AnalyticsCharts';
+import CourtManagement from '../components/CourtManagement';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -37,6 +38,7 @@ const Dashboard = () => {
   const [tenants, setTenants] = useState([]);
   const [courts, setCourts] = useState([]);
   const [selectedCourt, setSelectedCourt] = useState(null);
+  const [selectedVenueForCourts, setSelectedVenueForCourts] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showCreateVenue, setShowCreateVenue] = useState(false);
   const [showCreateTenant, setShowCreateTenant] = useState(false);
@@ -114,6 +116,19 @@ const Dashboard = () => {
         >
           <Buildings className="w-5 h-5" weight="duotone" />
           <span>Venues</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('courts')}
+          className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${
+            activeTab === 'courts'
+              ? 'bg-emerald-700 text-white'
+              : 'text-stone-400 hover:bg-indigo-900 hover:text-white'
+          }`}
+          data-testid="nav-courts"
+        >
+          <Buildings className="w-5 h-5" weight="duotone" />
+          <span>Courts</span>
         </button>
 
         <button
@@ -262,6 +277,30 @@ const Dashboard = () => {
       <div className="mt-8">
         <AnalyticsCharts />
       </div>
+
+      <div className="mt-8 bg-white border border-stone-200 rounded-2xl shadow-sm p-6">
+        <h2 className="text-2xl font-medium text-indigo-950 mb-4">Export Data</h2>
+        <div className="flex flex-wrap gap-4">
+          <a
+            href={`${API}/export/bookings`}
+            download
+            className="inline-flex items-center px-6 py-3 text-sm font-medium text-white bg-sky-700 rounded-xl hover:bg-sky-800"
+            data-testid="export-bookings"
+          >
+            <UploadSimple className="w-5 h-5 mr-2" weight="bold" />
+            Export Bookings CSV
+          </a>
+          <a
+            href={`${API}/export/analytics?days=30`}
+            download
+            className="inline-flex items-center px-6 py-3 text-sm font-medium text-white bg-orange-600 rounded-xl hover:bg-orange-700"
+            data-testid="export-analytics"
+          >
+            <UploadSimple className="w-5 h-5 mr-2" weight="bold" />
+            Export Analytics CSV
+          </a>
+        </div>
+      </div>
     </div>
   );
 
@@ -335,6 +374,55 @@ const Dashboard = () => {
         return renderOverview();
       case 'venues':
         return renderVenues();
+      case 'courts':
+        return (
+          <div>
+            <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight text-indigo-950 mb-8">Court Management</h1>
+            
+            {venues.length === 0 ? (
+              <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-12 text-center">
+                <Buildings className="w-16 h-16 text-stone-400 mx-auto mb-4" weight="duotone" />
+                <h3 className="text-xl font-medium text-indigo-950 mb-2">No venues yet</h3>
+                <p className="text-base text-stone-600 mb-6">Create a venue first to add courts</p>
+                <button
+                  onClick={() => setActiveTab('venues')}
+                  className="inline-flex items-center justify-center px-6 py-3 text-sm font-medium text-white bg-emerald-700 rounded-xl hover:bg-emerald-800"
+                >
+                  Go to Venues
+                </button>
+              </div>
+            ) : (
+              <div>
+                <div className="mb-6">
+                  <label className="block mb-2 text-sm font-medium text-indigo-950">Select Venue</label>
+                  <select
+                    value={selectedVenueForCourts?.id || ''}
+                    onChange={(e) => {
+                      const venue = venues.find(v => v.id === e.target.value);
+                      setSelectedVenueForCourts(venue);
+                    }}
+                    className="w-full max-w-md px-4 py-3 bg-white border border-stone-200 rounded-lg text-indigo-950 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                    data-testid="venue-select-courts"
+                  >
+                    <option value="">Choose a venue</option>
+                    {venues.map((venue, idx) => (
+                      <option key={idx} value={venue.id}>
+                        {venue.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {selectedVenueForCourts && (
+                  <CourtManagement
+                    venueId={selectedVenueForCourts.id}
+                    venueName={selectedVenueForCourts.name}
+                  />
+                )}
+              </div>
+            )}
+          </div>
+        );
       case 'bookings':
         return (
           <div>

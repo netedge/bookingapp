@@ -5,6 +5,7 @@ import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
+import PublicBooking from './pages/PublicBooking';
 import './App.css';
 
 const ProtectedRoute = ({ children }) => {
@@ -55,6 +56,8 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Landing />} />
+          <Route path="/book/:subdomain/:venueId" element={<PublicBooking />} />
+          <Route path="/book/:venueId" element={<PublicBooking />} />
           <Route
             path="/login"
             element={

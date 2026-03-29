@@ -42,6 +42,121 @@ if RESEND_API_KEY:
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
+# ============ EMAIL NOTIFICATION HELPERS ============
+
+async def send_booking_confirmation_email(booking: dict, customer_email: str, venue_name: str, court_name: str):
+    """Send booking confirmation email"""
+    if not RESEND_API_KEY or RESEND_API_KEY == "re_demo_key":
+        logger.info(f"Email notification skipped (demo mode): Booking confirmation to {customer_email}")
+        return
+    
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: 'Arial', sans-serif; background-color: #f5f5f4; margin: 0; padding: 20px; }}
+            .container {{ max-width: 600px; margin: 0 auto; background-color: white; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
+            .header {{ background: linear-gradient(135deg, #059669 0%, #047857 100%); padding: 40px 20px; text-align: center; }}
+            .header h1 {{ color: white; margin: 0; font-size: 28px; }}
+            .content {{ padding: 40px 30px; }}
+            .booking-details {{ background-color: #f0fdf4; border-left: 4px solid #059669; padding: 20px; margin: 20px 0; border-radius: 8px; }}
+            .detail-row {{ margin: 10px 0; }}
+            .label {{ font-weight: bold; color: #1e1b4b; }}
+            .value {{ color: #57534e; }}
+            .footer {{ background-color: #f5f5f4; padding: 20px; text-align: center; color: #78716c; font-size: 14px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>✓ Booking Confirmed!</h1>
+            </div>
+            <div class="content">
+                <p>Hi {booking.get('customer_name', 'there')},</p>
+                <p>Your booking has been confirmed. Here are your details:</p>
+                
+                <div class="booking-details">
+                    <div class="detail-row"><span class="label">Venue:</span> <span class="value">{venue_name}</span></div>
+                    <div class="detail-row"><span class="label">Court:</span> <span class="value">{court_name}</span></div>
+                    <div class="detail-row"><span class="label">Date:</span> <span class="value">{booking.get('date')}</span></div>
+                    <div class="detail-row"><span class="label">Time:</span> <span class="value">{booking.get('start_time')} - {booking.get('end_time')}</span></div>
+                    <div class="detail-row"><span class="label">Total:</span> <span class="value">${booking.get('total_price', 0):.2f}</span></div>
+                </div>
+                
+                <p>We look forward to seeing you!</p>
+            </div>
+            <div class="footer">
+                <p>© 2026 Kelika Sports Venue Management</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    try:
+        params = {
+            "from": SENDER_EMAIL,
+            "to": [customer_email],
+            "subject": f"Booking Confirmed - {venue_name}",
+            "html": html_content
+        }
+        await asyncio.to_thread(resend.Emails.send, params)
+        logger.info(f"Booking confirmation email sent to {customer_email}")
+    except Exception as e:
+        logger.error(f"Failed to send booking confirmation email: {str(e)}")
+
+async def send_booking_cancellation_email(booking: dict, customer_email: str, venue_name: str):
+    """Send booking cancellation email"""
+    if not RESEND_API_KEY or RESEND_API_KEY == "re_demo_key":
+        logger.info(f"Email notification skipped (demo mode): Cancellation notice to {customer_email}")
+        return
+    
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: 'Arial', sans-serif; background-color: #f5f5f4; margin: 0; padding: 20px; }}
+            .container {{ max-width: 600px; margin: 0 auto; background-color: white; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
+            .header {{ background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%); padding: 40px 20px; text-align: center; }}
+            .header h1 {{ color: white; margin: 0; font-size: 28px; }}
+            .content {{ padding: 40px 30px; }}
+            .footer {{ background-color: #f5f5f4; padding: 20px; text-align: center; color: #78716c; font-size: 14px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>Booking Cancelled</h1>
+            </div>
+            <div class="content">
+                <p>Hi {booking.get('customer_name', 'there')},</p>
+                <p>Your booking at {venue_name} on {booking.get('date')} at {booking.get('start_time')} has been cancelled.</p>
+                <p>If you have any questions, please contact the venue directly.</p>
+            </div>
+            <div class="footer">
+                <p>© 2026 Kelika Sports Venue Management</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    try:
+        params = {
+            "from": SENDER_EMAIL,
+            "to": [customer_email],
+            "subject": f"Booking Cancelled - {venue_name}",
+            "html": html_content
+        }
+        await asyncio.to_thread(resend.Emails.send, params)
+        logger.info(f"Cancellation email sent to {customer_email}")
+    except Exception as e:
+        logger.error(f"Failed to send cancellation email: {str(e)}")
+
+
 # ============ HELPER FUNCTIONS ============
 
 def hash_password(password: str) -> str:
@@ -577,7 +692,7 @@ async def create_booking(booking_data: BookingCreate):
     
     booking_doc = {
         **booking_data.model_dump(),
-        "status": "pending",
+        "status": "confirmed",
         "created_at": datetime.now(timezone.utc),
         "payment_status": "pending"
     }
@@ -585,7 +700,22 @@ async def create_booking(booking_data: BookingCreate):
     result = await db.bookings.insert_one(booking_doc)
     booking_id = str(result.inserted_id)
     
-    return {"id": booking_id, **booking_data.model_dump(), "status": "pending"}
+    # Send confirmation email
+    try:
+        court = await db.courts.find_one({"_id": ObjectId(booking_data.court_id)})
+        if court:
+            venue = await db.venues.find_one({"_id": ObjectId(court.get("venue_id"))})
+            if venue:
+                await send_booking_confirmation_email(
+                    booking_doc,
+                    booking_data.customer_email,
+                    venue.get("name", "Venue"),
+                    court.get("name", "Court")
+                )
+    except Exception as e:
+        logger.error(f"Failed to send booking confirmation: {str(e)}")
+    
+    return {"id": booking_id, **booking_data.model_dump(), "status": "confirmed"}
 
 @api_router.get("/bookings")
 async def get_bookings(
@@ -628,6 +758,241 @@ class PaymentCheckoutRequest(BaseModel):
 
 @api_router.post("/payments/checkout")
 async def create_checkout_session(
+
+
+# ============ BOOKING CANCELLATION ============
+
+@api_router.put("/bookings/{booking_id}/cancel")
+async def cancel_booking(booking_id: str, user: dict = Depends(get_current_user)):
+    booking = await db.bookings.find_one({"_id": ObjectId(booking_id)})
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    await db.bookings.update_one(
+        {"_id": ObjectId(booking_id)},
+        {"$set": {"status": "cancelled"}}
+    )
+    
+    # Send cancellation email
+    try:
+        court = await db.courts.find_one({"_id": ObjectId(booking.get("court_id"))})
+        if court:
+            venue = await db.venues.find_one({"_id": ObjectId(court.get("venue_id"))})
+            if venue:
+                await send_booking_cancellation_email(
+                    booking,
+                    booking.get("customer_email"),
+                    venue.get("name", "Venue")
+                )
+    except Exception as e:
+        logger.error(f"Failed to send cancellation email: {str(e)}")
+    
+    return {"message": "Booking cancelled successfully"}
+
+# ============ CSV EXPORT ENDPOINTS ============
+
+@api_router.get("/export/bookings")
+async def export_bookings_csv(user: dict = Depends(get_current_user)):
+    tenant_id = user.get("tenant_id")
+    query = {"tenant_id": tenant_id} if tenant_id and user["role"] != "super_admin" else {}
+    
+    bookings = await db.bookings.find(query).sort("date", -1).to_list(1000)
+    
+    csv_data = "Booking ID,Customer Name,Customer Email,Date,Start Time,End Time,Court ID,Total Price,Status,Payment Status\\n"
+    for booking in bookings:
+        csv_data += f"\"{str(booking['_id'])}\",\"{booking.get('customer_name', '')}\",\"{booking.get('customer_email', '')}\",\"{booking.get('date', '')}\",\"{booking.get('start_time', '')}\",\"{booking.get('end_time', '')}\",\"{booking.get('court_id', '')}\",{booking.get('total_price', 0)},\"{booking.get('status', '')}\",\"{booking.get('payment_status', '')}\"\\n"
+    
+    return Response(
+        content=csv_data,
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=bookings_{datetime.now().strftime('%Y%m%d')}.csv"}
+    )
+
+@api_router.get("/export/analytics")
+async def export_analytics_csv(days: int = 30, user: dict = Depends(get_current_user)):
+    tenant_id = user.get("tenant_id")
+    
+    end_date = datetime.now(timezone.utc)
+    start_date = end_date - timedelta(days=days)
+    
+    match_stage = {"payment_status": "paid", "created_at": {"$gte": start_date, "$lte": end_date}}
+    if user["role"] != "super_admin" and tenant_id:
+        match_stage["tenant_id"] = tenant_id
+    
+    pipeline = [
+        {"$match": match_stage},
+        {
+            "$group": {
+                "_id": {"$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}},
+                "revenue": {"$sum": "$total_price"},
+                "bookings": {"$sum": 1}
+            }
+        },
+        {"$sort": {"_id": 1}}
+    ]
+    
+    result = await db.bookings.aggregate(pipeline).to_list(1000)
+    
+    csv_data = "Date,Revenue,Bookings\\n"
+    for item in result:
+        csv_data += f"\"{item['_id']}\",{item['revenue']},{item['bookings']}\\n"
+    
+    return Response(
+        content=csv_data,
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=analytics_{datetime.now().strftime('%Y%m%d')}.csv"}
+    )
+
+# ============ RECURRING BOOKINGS ============
+
+class RecurringBookingCreate(BaseModel):
+    court_id: str
+    customer_email: str
+    customer_name: str
+    customer_phone: Optional[str] = None
+    start_date: str
+    end_date: str
+    start_time: str
+    end_time: str
+    days_of_week: List[int]  # 0=Monday, 6=Sunday
+    total_price: float
+
+@api_router.post("/bookings/recurring")
+async def create_recurring_booking(booking_data: RecurringBookingCreate, user: dict = Depends(get_current_user)):
+    from datetime import datetime as dt
+    
+    start_date = dt.strptime(booking_data.start_date, "%Y-%m-%d")
+    end_date = dt.strptime(booking_data.end_date, "%Y-%m-%d")
+    
+    created_bookings = []
+    conflicts = []
+    
+    current_date = start_date
+    while current_date <= end_date:
+        if current_date.weekday() in booking_data.days_of_week:
+            date_str = current_date.strftime("%Y-%m-%d")
+            
+            # Check for conflicts
+            existing = await db.bookings.find_one({
+                "court_id": booking_data.court_id,
+                "date": date_str,
+                "status": {"$in": ["pending", "confirmed"]},
+                "$or": [
+                    {
+                        "start_time": {"$lt": booking_data.end_time},
+                        "end_time": {"$gt": booking_data.start_time}
+                    }
+                ]
+            })
+            
+            if not existing:
+                booking_doc = {
+                    "court_id": booking_data.court_id,
+                    "customer_email": booking_data.customer_email,
+                    "customer_name": booking_data.customer_name,
+                    "customer_phone": booking_data.customer_phone,
+                    "date": date_str,
+                    "start_time": booking_data.start_time,
+                    "end_time": booking_data.end_time,
+                    "total_price": booking_data.total_price,
+                    "status": "confirmed",
+                    "payment_status": "pending",
+                    "recurring": True,
+                    "created_at": datetime.now(timezone.utc)
+                }
+                
+                result = await db.bookings.insert_one(booking_doc)
+                created_bookings.append({"date": date_str, "id": str(result.inserted_id)})
+            else:
+                conflicts.append(date_str)
+        
+        current_date += timedelta(days=1)
+    
+    return {
+        "created_count": len(created_bookings),
+        "conflict_count": len(conflicts),
+        "created_bookings": created_bookings,
+        "conflicts": conflicts
+    }
+
+# ============ SUBSCRIPTION TIERS ============
+
+class SubscriptionPlan(BaseModel):
+    plan_name: str
+    plan_tier: str  # "basic", "pro", "enterprise"
+    monthly_price: float
+    features: Dict[str, Any]
+
+@api_router.get("/subscriptions/plans")
+async def get_subscription_plans():
+    plans = [
+        {
+            "plan_tier": "basic",
+            "plan_name": "Basic",
+            "monthly_price": 49.00,
+            "features": {
+                "max_venues": 1,
+                "max_courts": 5,
+                "max_bookings_per_month": 100,
+                "analytics": False,
+                "custom_domain": False,
+                "email_notifications": True,
+                "priority_support": False
+            }
+        },
+        {
+            "plan_tier": "pro",
+            "plan_name": "Professional",
+            "monthly_price": 149.00,
+            "features": {
+                "max_venues": 5,
+                "max_courts": 25,
+                "max_bookings_per_month": 500,
+                "analytics": True,
+                "custom_domain": True,
+                "email_notifications": True,
+                "priority_support": True
+            }
+        },
+        {
+            "plan_tier": "enterprise",
+            "plan_name": "Enterprise",
+            "monthly_price": 499.00,
+            "features": {
+                "max_venues": "unlimited",
+                "max_courts": "unlimited",
+                "max_bookings_per_month": "unlimited",
+                "analytics": True,
+                "custom_domain": True,
+                "email_notifications": True,
+                "priority_support": True,
+                "white_label": True,
+                "api_access": True
+            }
+        }
+    ]
+    return plans
+
+@api_router.put("/tenants/{tenant_id}/subscription")
+async def update_tenant_subscription(
+    tenant_id: str,
+    plan_tier: str,
+    user: dict = Depends(get_current_user)
+):
+    if user["role"] != "super_admin":
+        raise HTTPException(status_code=403, detail="Only super admin can update subscriptions")
+    
+    await db.tenants.update_one(
+        {"_id": ObjectId(tenant_id)},
+        {"$set": {
+            "subscription_tier": plan_tier,
+            "subscription_updated_at": datetime.now(timezone.utc)
+        }}
+    )
+    
+    return {"message": "Subscription updated successfully"}
+
+
     request: PaymentCheckoutRequest,
     user: dict = Depends(get_current_user)
 ):

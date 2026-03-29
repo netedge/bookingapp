@@ -826,15 +826,24 @@ async def get_court_occupancy(user: dict = Depends(get_current_user)):
     
     # Get all courts
     court_query = {"tenant_id": tenant_id} if tenant_id and user["role"] != "super_admin" else {}
-    courts = await db.courts.find(court_query, {"_id": 0}).to_list(100)
+    courts = await db.courts.find(court_query).to_list(100)
+    
+    # Get booking counts for all courts in one query (prevents N+1)
+    court_ids = [court.get("id") for court in courts if court.get("id")]
+    if not court_ids:
+        return []
+    
+    booking_pipeline = [
+        {"$match": {"court_id": {"$in": court_ids}, "status": {"$in": ["confirmed", "completed"]}}},
+        {"$group": {"_id": "$court_id", "count": {"$sum": 1}}}
+    ]
+    booking_counts = await db.bookings.aggregate(booking_pipeline).to_list(100)
+    booking_map = {item["_id"]: item["count"] for item in booking_counts}
     
     occupancy_data = []
     for court in courts:
-        # Count bookings for this court
-        booking_count = await db.bookings.count_documents({
-            "court_id": court.get("id"),
-            "status": {"$in": ["confirmed", "completed"]}
-        })
+        court_id = court.get("id")
+        booking_count = booking_map.get(court_id, 0)
         
         occupancy_data.append({
             "court_name": court.get("name"),

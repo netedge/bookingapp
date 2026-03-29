@@ -20,6 +20,8 @@ import qrcode
 import razorpay
 import io
 import base64
+from paypalcheckoutsdk.core import PayPalHttpClient, SandboxEnvironment, LiveEnvironment
+from paypalcheckoutsdk.orders import OrdersCreateRequest, OrdersCaptureRequest
 from typing import Optional, List, Dict, Any
 from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionResponse, CheckoutStatusResponse, CheckoutSessionRequest
 
@@ -38,6 +40,11 @@ RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
 SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "onboarding@resend.dev")
 RAZORPAY_KEY_ID = os.environ.get("RAZORPAY_KEY_ID", "")
 RAZORPAY_KEY_SECRET = os.environ.get("RAZORPAY_KEY_SECRET", "")
+PAYPAL_CLIENT_ID = os.environ.get("PAYPAL_CLIENT_ID", "")
+PAYPAL_SECRET = os.environ.get("PAYPAL_SECRET", "")
+PAYPAL_MODE = os.environ.get("PAYPAL_MODE", "sandbox")
+SKRILL_MERCHANT_EMAIL = os.environ.get("SKRILL_MERCHANT_EMAIL", "")
+SKRILL_API_PASSWORD = os.environ.get("SKRILL_API_PASSWORD", "")
 
 if RESEND_API_KEY:
     resend.api_key = RESEND_API_KEY
@@ -46,6 +53,12 @@ if RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET:
     razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
 else:
     razorpay_client = None
+
+if PAYPAL_CLIENT_ID and PAYPAL_SECRET:
+    environment = SandboxEnvironment(client_id=PAYPAL_CLIENT_ID, client_secret=PAYPAL_SECRET) if PAYPAL_MODE == "sandbox" else LiveEnvironment(client_id=PAYPAL_CLIENT_ID, client_secret=PAYPAL_SECRET)
+    paypal_client = PayPalHttpClient(environment)
+else:
+    paypal_client = None
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -1150,6 +1163,208 @@ async def verify_razorpay_payment(
         if tx:
             await db.bookings.update_one(
                 {"_id": ObjectId(tx["booking_id"])},
+
+
+# ============ PAYPAL PAYMENT ENDPOINTS ============
+
+class PayPalOrderRequest(BaseModel):
+    booking_id: str
+    return_url: str
+    cancel_url: str
+
+@api_router.post("/payments/paypal/create-order")
+async def create_paypal_order(request: PayPalOrderRequest, user: dict = Depends(get_current_user)):
+    if not paypal_client:
+        raise HTTPException(status_code=400, detail="PayPal not configured")
+    
+    booking = await db.bookings.find_one({"_id": ObjectId(request.booking_id)})
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    try:
+        order_request = OrdersCreateRequest()
+        order_request.prefer('return=representation')
+        order_request.request_body({
+            "intent": "CAPTURE",
+            "purchase_units": [{
+                "reference_id": request.booking_id,
+                "amount": {
+                    "currency_code": "USD",
+                    "value": f"{booking['total_price']:.2f}"
+                }
+            }],
+            "application_context": {
+                "return_url": request.return_url,
+                "cancel_url": request.cancel_url
+            }
+        })
+        
+        response = paypal_client.execute(order_request)
+        
+        # Store payment transaction
+        await db.payment_transactions.insert_one({
+            "booking_id": request.booking_id,
+            "paypal_order_id": response.result.id,
+            "amount": booking["total_price"],
+            "currency": "USD",
+            "payment_status": "created",
+            "payment_method": "paypal",
+            "created_at": datetime.now(timezone.utc)
+        })
+        
+        # Get approval URL
+        approval_url = None
+        for link in response.result.links:
+            if link.rel == "approve":
+                approval_url = link.href
+                break
+        
+        return {
+            "order_id": response.result.id,
+            "status": response.result.status,
+            "approval_url": approval_url
+        }
+    except Exception as e:
+        logger.error(f"PayPal order creation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Payment order creation failed: {str(e)}")
+
+@api_router.post("/payments/paypal/capture/{order_id}")
+async def capture_paypal_order(order_id: str):
+    if not paypal_client:
+        raise HTTPException(status_code=400, detail="PayPal not configured")
+    
+    try:
+        capture_request = OrdersCaptureRequest(order_id)
+        response = paypal_client.execute(capture_request)
+        
+        # Update payment transaction
+        await db.payment_transactions.update_one(
+            {"paypal_order_id": order_id},
+            {
+                "$set": {
+                    "payment_status": "paid",
+                    "captured_at": datetime.now(timezone.utc)
+                }
+            }
+        )
+        
+        # Update booking status
+        tx = await db.payment_transactions.find_one({"paypal_order_id": order_id})
+        if tx:
+            await db.bookings.update_one(
+                {"_id": ObjectId(tx["booking_id"])},
+                {"$set": {"status": "confirmed", "payment_status": "paid"}}
+            )
+        
+        return {
+            "status": "success",
+            "order_id": order_id,
+            "capture_id": response.result.purchase_units[0].payments.captures[0].id
+        }
+    except Exception as e:
+        logger.error(f"PayPal capture failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Payment capture failed")
+
+# ============ SKRILL PAYMENT ENDPOINTS ============
+
+class SkrillPaymentRequest(BaseModel):
+    booking_id: str
+    return_url: str
+    cancel_url: str
+    status_url: str
+
+@api_router.post("/payments/skrill/prepare")
+async def prepare_skrill_payment(request: SkrillPaymentRequest):
+    if not SKRILL_MERCHANT_EMAIL or not SKRILL_API_PASSWORD:
+        raise HTTPException(status_code=400, detail="Skrill not configured")
+    
+    booking = await db.bookings.find_one({"_id": ObjectId(request.booking_id)})
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    try:
+        payload = {
+            "pay_to_email": SKRILL_MERCHANT_EMAIL,
+            "amount": f"{booking['total_price']:.2f}",
+            "currency": "EUR",
+            "return_url": request.return_url,
+            "cancel_url": request.cancel_url,
+            "status_url": request.status_url,
+            "transaction_id": str(booking["_id"]),
+            "detail1_description": f"Booking: {booking.get('customer_name', '')}",
+            "detail1_text": f"Date: {booking.get('date', '')} {booking.get('start_time', '')}"
+        }
+        
+        import httpx
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://pay.skrill.com",
+                data=payload,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                session_id = response.text
+                
+                # Store payment transaction
+                await db.payment_transactions.insert_one({
+                    "booking_id": request.booking_id,
+                    "skrill_session_id": session_id,
+                    "amount": booking["total_price"],
+                    "currency": "EUR",
+                    "payment_status": "created",
+                    "payment_method": "skrill",
+                    "created_at": datetime.now(timezone.utc)
+                })
+                
+                return {
+                    "session_id": session_id,
+                    "payment_url": f"https://pay.skrill.com/?sid={session_id}"
+                }
+            else:
+                raise HTTPException(status_code=500, detail="Failed to create Skrill session")
+                
+    except Exception as e:
+        logger.error(f"Skrill payment preparation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Payment preparation failed: {str(e)}")
+
+@api_router.post("/payments/skrill/status")
+async def skrill_payment_status(request: Request):
+    """Webhook endpoint for Skrill payment status updates"""
+    try:
+        form_data = await request.form()
+        
+        transaction_id = form_data.get("transaction_id")
+        status = form_data.get("status")
+        mb_transaction_id = form_data.get("mb_transaction_id")
+        
+        # Update payment transaction
+        await db.payment_transactions.update_one(
+            {"booking_id": transaction_id},
+            {
+                "$set": {
+                    "payment_status": "paid" if status == "2" else "failed",
+                    "skrill_transaction_id": mb_transaction_id,
+                    "updated_at": datetime.now(timezone.utc)
+                }
+            }
+        )
+        
+        # Update booking if payment successful
+        if status == "2":  # Processed
+            booking = await db.bookings.find_one({"_id": ObjectId(transaction_id)})
+            if booking:
+                await db.bookings.update_one(
+                    {"_id": ObjectId(transaction_id)},
+                    {"$set": {"status": "confirmed", "payment_status": "paid"}}
+                )
+        
+        return {"status": "processed"}
+    except Exception as e:
+        logger.error(f"Skrill webhook processing failed: {str(e)}")
+        return {"status": "error"}
+
+
                 {"$set": {"status": "confirmed", "payment_status": "paid"}}
             )
         

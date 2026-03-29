@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CreditCard, Wallet } from '@phosphor-icons/react';
+import { CreditCard, Wallet, Bank } from '@phosphor-icons/react';
 import axios from 'axios';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -62,10 +62,6 @@ const PaymentGatewaySelector = ({ bookingId, amount, onSuccess }) => {
             alert('Payment verification failed');
           }
         },
-        prefill: {
-          name: 'Customer',
-          email: 'customer@example.com'
-        },
         theme: {
           color: '#059669'
         }
@@ -80,54 +76,118 @@ const PaymentGatewaySelector = ({ bookingId, amount, onSuccess }) => {
     }
   };
 
+  const handlePayPalPayment = async () => {
+    setLoading(true);
+    try {
+      const { data } = await axios.post(
+        `${API}/payments/paypal/create-order`,
+        {
+          booking_id: bookingId,
+          return_url: `${window.location.origin}/payment-success`,
+          cancel_url: `${window.location.origin}/payment-cancelled`
+        },
+        { withCredentials: true }
+      );
+
+      window.location.href = data.approval_url;
+    } catch (error) {
+      alert(error.response?.data?.detail || 'Payment failed');
+      setLoading(false);
+    }
+  };
+
+  const handleSkrillPayment = async () => {
+    setLoading(true);
+    try {
+      const { data } = await axios.post(
+        `${API}/payments/skrill/prepare`,
+        {
+          booking_id: bookingId,
+          return_url: `${window.location.origin}/payment-success`,
+          cancel_url: `${window.location.origin}/payment-cancelled`,
+          status_url: `${API}/payments/skrill/status`
+        }
+      );
+
+      window.location.href = data.payment_url;
+    } catch (error) {
+      alert(error.response?.data?.detail || 'Payment failed');
+      setLoading(false);
+    }
+  };
+
   const handlePayment = () => {
     if (selectedGateway === 'stripe') {
       handleStripePayment();
     } else if (selectedGateway === 'razorpay') {
       handleRazorpayPayment();
+    } else if (selectedGateway === 'paypal') {
+      handlePayPalPayment();
+    } else if (selectedGateway === 'skrill') {
+      handleSkrillPayment();
     }
   };
+
+  const gateways = [
+    {
+      id: 'stripe',
+      name: 'Stripe',
+      icon: <CreditCard className="w-6 h-6 text-emerald-700" weight="duotone" />,
+      description: 'Credit/Debit Cards',
+      currency: '$',
+      color: 'emerald'
+    },
+    {
+      id: 'razorpay',
+      name: 'Razorpay',
+      icon: <Wallet className="w-6 h-6 text-sky-700" weight="duotone" />,
+      description: 'UPI, Cards, Netbanking',
+      currency: '₹',
+      color: 'sky'
+    },
+    {
+      id: 'paypal',
+      name: 'PayPal',
+      icon: <Bank className="w-6 h-6 text-indigo-700" weight="duotone" />,
+      description: 'PayPal Balance, Cards',
+      currency: '$',
+      color: 'indigo'
+    },
+    {
+      id: 'skrill',
+      name: 'Skrill',
+      icon: <Wallet className="w-6 h-6 text-orange-600" weight="duotone" />,
+      description: 'eWallet, Cards',
+      currency: '€',
+      color: 'orange'
+    }
+  ];
 
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-medium text-indigo-950 mb-4">Select Payment Method</h3>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <button
-          onClick={() => setSelectedGateway('stripe')}
-          className={`p-4 rounded-xl border-2 transition-all text-left ${
-            selectedGateway === 'stripe'
-              ? 'bg-emerald-50 border-emerald-600'
-              : 'bg-white border-stone-200 hover:border-emerald-300'
-          }`}
-          data-testid="payment-stripe"
-        >
-          <div className="flex items-center space-x-3">
-            <CreditCard className="w-6 h-6 text-emerald-700" weight="duotone" />
-            <div>
-              <h4 className="font-medium text-indigo-950">Stripe</h4>
-              <p className="text-xs text-stone-600">Credit/Debit Cards</p>
+        {gateways.map((gateway) => (
+          <button
+            key={gateway.id}
+            onClick={() => setSelectedGateway(gateway.id)}
+            className={`p-4 rounded-xl border-2 transition-all text-left ${
+              selectedGateway === gateway.id
+                ? `bg-${gateway.color}-50 border-${gateway.color}-600`
+                : 'bg-white border-stone-200 hover:border-' + gateway.color + '-300'
+            }`}
+            data-testid={`payment-${gateway.id}`}
+          >
+            <div className="flex items-center space-x-3">
+              {gateway.icon}
+              <div>
+                <h4 className="font-medium text-indigo-950">{gateway.name}</h4>
+                <p className="text-xs text-stone-600">{gateway.description}</p>
+              </div>
             </div>
-          </div>
-        </button>
-
-        <button
-          onClick={() => setSelectedGateway('razorpay')}
-          className={`p-4 rounded-xl border-2 transition-all text-left ${
-            selectedGateway === 'razorpay'
-              ? 'bg-sky-50 border-sky-600'
-              : 'bg-white border-stone-200 hover:border-sky-300'
-          }`}
-          data-testid="payment-razorpay"
-        >
-          <div className="flex items-center space-x-3">
-            <Wallet className="w-6 h-6 text-sky-700" weight="duotone" />
-            <div>
-              <h4 className="font-medium text-indigo-950">Razorpay</h4>
-              <p className="text-xs text-stone-600">UPI, Cards, Netbanking</p>
-            </div>
-          </div>
-        </button>
+          </button>
+        ))}
       </div>
 
       <div className="p-4 bg-stone-50 border border-stone-200 rounded-xl">
@@ -138,7 +198,7 @@ const PaymentGatewaySelector = ({ bookingId, amount, onSuccess }) => {
         <div className="flex items-center justify-between mt-2">
           <span className="text-sm text-stone-600">Amount</span>
           <span className="text-xl font-semibold text-emerald-700">
-            {selectedGateway === 'razorpay' ? '₹' : '$'}{amount.toFixed(2)}
+            {gateways.find(g => g.id === selectedGateway)?.currency}{amount.toFixed(2)}
           </span>
         </div>
       </div>
@@ -149,7 +209,7 @@ const PaymentGatewaySelector = ({ bookingId, amount, onSuccess }) => {
         className="w-full px-6 py-4 text-sm font-medium text-white bg-emerald-700 rounded-xl hover:bg-emerald-800 disabled:opacity-50 transition-all"
         data-testid="proceed-payment"
       >
-        {loading ? 'Processing...' : `Pay with ${selectedGateway === 'stripe' ? 'Stripe' : 'Razorpay'}`}
+        {loading ? 'Processing...' : `Pay with ${gateways.find(g => g.id === selectedGateway)?.name}`}
       </button>
     </div>
   );

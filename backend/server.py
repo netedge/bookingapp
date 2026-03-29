@@ -738,6 +738,110 @@ async def get_analytics(user: dict = Depends(get_current_user)):
         "total_revenue": total_revenue
     }
 
+# ============ BULK IMPORT ENDPOINTS ============
+
+@api_router.post("/bulk-import/venues")
+async def bulk_import_venues(venues_data: List[VenueCreate], user: dict = Depends(get_current_user)):
+    if user["role"] not in ["super_admin", "tenant_admin"]:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    
+    imported = []
+    errors = []
+    
+    for idx, venue_data in enumerate(venues_data):
+        try:
+            # Determine tenant_id
+            if user["role"] == "super_admin":
+                if not venue_data.tenant_id:
+                    errors.append({"index": idx, "error": "tenant_id required for super_admin"})
+                    continue
+                tenant_id = venue_data.tenant_id
+            else:
+                tenant_id = user["tenant_id"]
+            
+            venue_doc = {
+                "tenant_id": tenant_id,
+                "name": venue_data.name,
+                "description": venue_data.description,
+                "address": venue_data.address,
+                "image_url": venue_data.image_url or "https://images.unsplash.com/photo-1765124540460-b884e248ac2b",
+                "created_at": datetime.now(timezone.utc)
+            }
+            
+            result = await db.venues.insert_one(venue_doc)
+            imported.append({"index": idx, "id": str(result.inserted_id), "name": venue_data.name})
+        except Exception as e:
+            errors.append({"index": idx, "error": str(e)})
+    
+    return {
+        "imported_count": len(imported),
+        "error_count": len(errors),
+        "imported": imported,
+        "errors": errors
+    }
+
+# ============ ANALYTICS CHART DATA ENDPOINTS ============
+
+@api_router.get("/analytics/revenue-trend")
+async def get_revenue_trend(days: int = 30, user: dict = Depends(get_current_user)):
+    tenant_id = user.get("tenant_id")
+    
+    # Calculate date range
+    end_date = datetime.now(timezone.utc)
+    start_date = end_date - timedelta(days=days)
+    
+    # Build aggregation pipeline
+    match_stage = {"payment_status": "paid", "created_at": {"$gte": start_date, "$lte": end_date}}
+    if user["role"] != "super_admin" and tenant_id:
+        match_stage["tenant_id"] = tenant_id
+    
+    pipeline = [
+        {"$match": match_stage},
+        {
+            "$group": {
+                "_id": {
+                    "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}
+                },
+                "revenue": {"$sum": "$total_price"},
+                "bookings": {"$sum": 1}
+            }
+        },
+        {"$sort": {"_id": 1}}
+    ]
+    
+    result = await db.bookings.aggregate(pipeline).to_list(100)
+    
+    return {
+        "dates": [item["_id"] for item in result],
+        "revenue": [item["revenue"] for item in result],
+        "bookings": [item["bookings"] for item in result]
+    }
+
+@api_router.get("/analytics/court-occupancy")
+async def get_court_occupancy(user: dict = Depends(get_current_user)):
+    tenant_id = user.get("tenant_id")
+    
+    # Get all courts
+    court_query = {"tenant_id": tenant_id} if tenant_id and user["role"] != "super_admin" else {}
+    courts = await db.courts.find(court_query, {"_id": 0}).to_list(100)
+    
+    occupancy_data = []
+    for court in courts:
+        # Count bookings for this court
+        booking_count = await db.bookings.count_documents({
+            "court_id": court.get("id"),
+            "status": {"$in": ["confirmed", "completed"]}
+        })
+        
+        occupancy_data.append({
+            "court_name": court.get("name"),
+            "sport_type": court.get("sport_type"),
+            "bookings": booking_count,
+            "occupancy_rate": min(booking_count / 30 * 100, 100)  # Rough estimate
+        })
+    
+    return sorted(occupancy_data, key=lambda x: x["occupancy_rate"], reverse=True)
+
 # ============ QR CODE ENDPOINTS ============
 
 @api_router.get("/qr-code/{venue_id}")

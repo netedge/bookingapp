@@ -12,9 +12,14 @@ import {
   Buildings,
   Plus,
   QrCode,
-  ChartBar
+  ChartBar,
+  UploadSimple
 } from '@phosphor-icons/react';
 import { motion } from 'framer-motion';
+import CreateTenantModal from '../components/CreateTenantModal';
+import CreateVenueModal from '../components/CreateVenueModal';
+import BookingCalendar from '../components/BookingCalendar';
+import AnalyticsCharts from '../components/AnalyticsCharts';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -30,9 +35,12 @@ const Dashboard = () => {
   });
   const [venues, setVenues] = useState([]);
   const [tenants, setTenants] = useState([]);
+  const [courts, setCourts] = useState([]);
+  const [selectedCourt, setSelectedCourt] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showCreateVenue, setShowCreateVenue] = useState(false);
   const [showCreateTenant, setShowCreateTenant] = useState(false);
+  const [showBulkImport, setShowBulkImport] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -44,13 +52,15 @@ const Dashboard = () => {
 
   const fetchDashboardData = async () => {
     try {
-      const [analyticsRes, venuesRes] = await Promise.all([
+      const [analyticsRes, venuesRes, courtsRes] = await Promise.all([
         axios.get(`${API}/analytics/dashboard`, { withCredentials: true }),
-        axios.get(`${API}/venues`, { withCredentials: true })
+        axios.get(`${API}/venues`, { withCredentials: true }),
+        axios.get(`${API}/courts`, { withCredentials: true })
       ]);
 
       setStats(analyticsRes.data);
       setVenues(venuesRes.data);
+      setCourts(courtsRes.data);
 
       if (user?.role === 'super_admin') {
         const tenantsRes = await axios.get(`${API}/tenants`, { withCredentials: true });
@@ -248,6 +258,10 @@ const Dashboard = () => {
           </button>
         </div>
       </div>
+
+      <div className="mt-8">
+        <AnalyticsCharts />
+      </div>
     </div>
   );
 
@@ -325,11 +339,46 @@ const Dashboard = () => {
         return (
           <div>
             <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight text-indigo-950 mb-8">Bookings</h1>
-            <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-12 text-center">
-              <CalendarCheck className="w-16 h-16 text-stone-400 mx-auto mb-4" weight="duotone" />
-              <h3 className="text-xl font-medium text-indigo-950 mb-2">Booking calendar coming soon</h3>
-              <p className="text-base text-stone-600">Manage all your bookings in one place</p>
-            </div>
+            
+            {courts.length === 0 ? (
+              <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-12 text-center">
+                <CalendarCheck className="w-16 h-16 text-stone-400 mx-auto mb-4" weight="duotone" />
+                <h3 className="text-xl font-medium text-indigo-950 mb-2">No courts available</h3>
+                <p className="text-base text-stone-600 mb-6">Create a venue and add courts to start accepting bookings</p>
+                <button
+                  onClick={() => setActiveTab('venues')}
+                  className="inline-flex items-center justify-center px-6 py-3 text-sm font-medium text-white bg-emerald-700 rounded-xl hover:bg-emerald-800"
+                >
+                  Go to Venues
+                </button>
+              </div>
+            ) : (
+              <div>
+                <div className="mb-6">
+                  <label className="block mb-2 text-sm font-medium text-indigo-950">Select Court</label>
+                  <select
+                    value={selectedCourt || ''}
+                    onChange={(e) => setSelectedCourt(e.target.value)}
+                    className="w-full max-w-md px-4 py-3 bg-white border border-stone-200 rounded-lg text-indigo-950 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                    data-testid="court-select"
+                  >
+                    <option value="">Choose a court</option>
+                    {courts.map((court, idx) => (
+                      <option key={idx} value={court.id || idx}>
+                        {court.name} - {court.sport_type}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {selectedCourt && (
+                  <BookingCalendar
+                    courtId={selectedCourt}
+                    courtName={courts.find(c => (c.id || courts.indexOf(c).toString()) === selectedCourt)?.name}
+                  />
+                )}
+              </div>
+            )}
           </div>
         );
       case 'tenants':
@@ -383,6 +432,18 @@ const Dashboard = () => {
       <div className="ml-64 p-8">
         {renderContent()}
       </div>
+
+      <CreateTenantModal
+        isOpen={showCreateTenant}
+        onClose={() => setShowCreateTenant(false)}
+        onSuccess={fetchDashboardData}
+      />
+
+      <CreateVenueModal
+        isOpen={showCreateVenue}
+        onClose={() => setShowCreateVenue(false)}
+        onSuccess={fetchDashboardData}
+      />
     </div>
   );
 };

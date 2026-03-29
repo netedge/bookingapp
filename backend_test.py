@@ -156,7 +156,8 @@ class KelikaAPITester:
             "name": f"Test Arena {datetime.now().strftime('%H%M%S')}",
             "description": "A test sports arena for automated testing",
             "address": "123 Test Street, Test City, TC 12345",
-            "image_url": "https://images.unsplash.com/photo-1765124540460-b884e248ac2b"
+            "image_url": "https://images.unsplash.com/photo-1765124540460-b884e248ac2b",
+            "tenant_id": self.created_tenant_id  # Add tenant_id for super_admin
         }
         
         success, response = self.make_request(
@@ -197,7 +198,8 @@ class KelikaAPITester:
             "name": f"Test Court {datetime.now().strftime('%H%M%S')}",
             "sport_type": "Tennis",
             "capacity": 4,
-            "indoor": True
+            "indoor": True,
+            "tenant_id": self.created_tenant_id  # Add tenant_id for super_admin
         }
         
         success, response = self.make_request(
@@ -239,7 +241,8 @@ class KelikaAPITester:
             "price": 50.0,
             "start_time": "09:00",
             "end_time": "17:00",
-            "days_of_week": [1, 2, 3, 4, 5]  # Monday to Friday
+            "days_of_week": [1, 2, 3, 4, 5],  # Monday to Friday
+            "tenant_id": self.created_tenant_id  # Add tenant_id for super_admin
         }
         
         success, response = self.make_request(
@@ -391,14 +394,9 @@ class KelikaAPITester:
             self.log_test("Payment Checkout", False, "No booking ID available")
             return False
         
-        checkout_data = {
-            "booking_id": self.created_booking_id,
-            "origin_url": self.base_url
-        }
-        
+        # Use query parameters instead of JSON body
         success, response = self.make_request(
-            "POST", "payments/checkout", 
-            checkout_data, 
+            "POST", f"payments/checkout?booking_id={self.created_booking_id}&origin_url={self.base_url}", 
             expected_status=200
         )
         
@@ -407,6 +405,92 @@ class KelikaAPITester:
             return True
         else:
             self.log_test("Payment Checkout", False, f"Response: {response}")
+            return False
+
+    def test_bulk_import_venues(self):
+        """Test bulk import venues functionality"""
+        print("\n📦 Testing Bulk Import...")
+        
+        if not self.created_tenant_id:
+            self.log_test("Bulk Import Venues", False, "No tenant ID available")
+            return False
+        
+        venues_data = [
+            {
+                "name": f"Bulk Venue 1 {datetime.now().strftime('%H%M%S')}",
+                "description": "First bulk imported venue",
+                "address": "100 Bulk Street, Test City, TC 12345",
+                "tenant_id": self.created_tenant_id
+            },
+            {
+                "name": f"Bulk Venue 2 {datetime.now().strftime('%H%M%S')}",
+                "description": "Second bulk imported venue",
+                "address": "200 Bulk Avenue, Test City, TC 12345",
+                "tenant_id": self.created_tenant_id
+            }
+        ]
+        
+        success, response = self.make_request(
+            "POST", "bulk-import/venues", 
+            venues_data, 
+            expected_status=200
+        )
+        
+        if success and "imported_count" in response and "error_count" in response:
+            imported = response.get("imported_count", 0)
+            errors = response.get("error_count", 0)
+            self.log_test("Bulk Import Venues", True, f"Imported: {imported}, Errors: {errors}")
+            return True
+        else:
+            self.log_test("Bulk Import Venues", False, f"Response: {response}")
+            return False
+
+    def test_revenue_trend_analytics(self):
+        """Test revenue trend analytics endpoint"""
+        print("\n📈 Testing Revenue Trend Analytics...")
+        
+        # Test with different day ranges
+        for days in [7, 30, 90]:
+            success, response = self.make_request("GET", f"analytics/revenue-trend?days={days}")
+            
+            expected_keys = ["dates", "revenue", "bookings"]
+            if success and all(key in response for key in expected_keys):
+                dates_count = len(response.get("dates", []))
+                revenue_sum = sum(response.get("revenue", []))
+                bookings_sum = sum(response.get("bookings", []))
+                self.log_test(f"Revenue Trend ({days} days)", True, 
+                             f"Data points: {dates_count}, Revenue: ${revenue_sum}, Bookings: {bookings_sum}")
+            else:
+                self.log_test(f"Revenue Trend ({days} days)", False, f"Response: {response}")
+                return False
+        
+        return True
+
+    def test_court_occupancy_analytics(self):
+        """Test court occupancy analytics endpoint"""
+        print("\n🏟️ Testing Court Occupancy Analytics...")
+        
+        success, response = self.make_request("GET", "analytics/court-occupancy")
+        
+        if success and isinstance(response, list):
+            court_count = len(response)
+            if court_count > 0:
+                # Check structure of first court data
+                first_court = response[0]
+                expected_keys = ["court_name", "sport_type", "bookings", "occupancy_rate"]
+                if all(key in first_court for key in expected_keys):
+                    self.log_test("Court Occupancy Analytics", True, 
+                                 f"Found {court_count} courts with occupancy data")
+                    return True
+                else:
+                    self.log_test("Court Occupancy Analytics", False, 
+                                 f"Missing keys in court data: {first_court}")
+                    return False
+            else:
+                self.log_test("Court Occupancy Analytics", True, "No courts found (expected for new tenant)")
+                return True
+        else:
+            self.log_test("Court Occupancy Analytics", False, f"Response: {response}")
             return False
 
     def test_auth_logout(self):
@@ -460,6 +544,11 @@ class KelikaAPITester:
         self.test_analytics_dashboard()
         self.test_qr_code_generation()
         self.test_payment_checkout()
+        
+        # New features testing
+        self.test_bulk_import_venues()
+        self.test_revenue_trend_analytics()
+        self.test_court_occupancy_analytics()
         
         # Cleanup
         self.test_auth_logout()

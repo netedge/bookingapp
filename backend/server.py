@@ -17,6 +17,7 @@ import jwt
 import asyncio
 import resend
 import qrcode
+import razorpay
 import io
 import base64
 from typing import Optional, List, Dict, Any
@@ -35,9 +36,16 @@ JWT_ALGORITHM = "HS256"
 JWT_SECRET = os.environ["JWT_SECRET"]
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
 SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "onboarding@resend.dev")
+RAZORPAY_KEY_ID = os.environ.get("RAZORPAY_KEY_ID", "")
+RAZORPAY_KEY_SECRET = os.environ.get("RAZORPAY_KEY_SECRET", "")
 
 if RESEND_API_KEY:
     resend.api_key = RESEND_API_KEY
+
+if RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET:
+    razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+else:
+    razorpay_client = None
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -1052,6 +1060,129 @@ async def get_payment_status(session_id: str):
             )
     
     return status.model_dump()
+
+
+# ============ RAZORPAY PAYMENT ENDPOINTS ============
+
+class RazorpayOrderRequest(BaseModel):
+    booking_id: str
+    amount: float
+    currency: str = "INR"
+
+@api_router.post("/payments/razorpay/create-order")
+async def create_razorpay_order(request: RazorpayOrderRequest, user: dict = Depends(get_current_user)):
+    if not razorpay_client:
+        raise HTTPException(status_code=400, detail="Razorpay not configured")
+    
+    booking = await db.bookings.find_one({"_id": ObjectId(request.booking_id)})
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    # Amount in paise (multiply by 100)
+    amount_paise = int(request.amount * 100)
+    
+    try:
+        order_data = {
+            "amount": amount_paise,
+            "currency": request.currency,
+            "payment_capture": 1,
+            "notes": {
+                "booking_id": request.booking_id
+            }
+        }
+        
+        razorpay_order = razorpay_client.order.create(data=order_data)
+        
+        # Store payment transaction
+        await db.payment_transactions.insert_one({
+            "booking_id": request.booking_id,
+            "razorpay_order_id": razorpay_order["id"],
+            "amount": request.amount,
+            "currency": request.currency,
+            "payment_status": "created",
+            "payment_method": "razorpay",
+            "created_at": datetime.now(timezone.utc)
+        })
+        
+        return {
+            "order_id": razorpay_order["id"],
+            "amount": razorpay_order["amount"],
+            "currency": razorpay_order["currency"],
+            "key_id": RAZORPAY_KEY_ID
+        }
+    except Exception as e:
+        logger.error(f"Razorpay order creation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Payment order creation failed: {str(e)}")
+
+@api_router.post("/payments/razorpay/verify")
+async def verify_razorpay_payment(
+    razorpay_order_id: str,
+    razorpay_payment_id: str,
+    razorpay_signature: str
+):
+    if not razorpay_client:
+        raise HTTPException(status_code=400, detail="Razorpay not configured")
+    
+    try:
+        # Verify signature
+        params_dict = {
+            'razorpay_order_id': razorpay_order_id,
+            'razorpay_payment_id': razorpay_payment_id,
+            'razorpay_signature': razorpay_signature
+        }
+        
+        razorpay_client.utility.verify_payment_signature(params_dict)
+        
+        # Update payment transaction
+        await db.payment_transactions.update_one(
+            {"razorpay_order_id": razorpay_order_id},
+            {
+                "$set": {
+                    "razorpay_payment_id": razorpay_payment_id,
+                    "payment_status": "paid",
+                    "verified_at": datetime.now(timezone.utc)
+                }
+            }
+        )
+        
+        # Update booking status
+        tx = await db.payment_transactions.find_one({"razorpay_order_id": razorpay_order_id})
+        if tx:
+            await db.bookings.update_one(
+                {"_id": ObjectId(tx["booking_id"])},
+                {"$set": {"status": "confirmed", "payment_status": "paid"}}
+            )
+        
+        return {"status": "success", "message": "Payment verified successfully"}
+    except razorpay.errors.SignatureVerificationError:
+        raise HTTPException(status_code=400, detail="Invalid payment signature")
+    except Exception as e:
+        logger.error(f"Payment verification failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Payment verification failed")
+
+@api_router.get("/payments/razorpay/status/{order_id}")
+async def get_razorpay_payment_status(order_id: str):
+    if not razorpay_client:
+        raise HTTPException(status_code=400, detail="Razorpay not configured")
+    
+    try:
+        order = razorpay_client.order.fetch(order_id)
+        payments = razorpay_client.order.payments(order_id)
+        
+        tx = await db.payment_transactions.find_one({"razorpay_order_id": order_id})
+        
+        return {
+            "order_id": order_id,
+            "status": order["status"],
+            "amount_paid": order.get("amount_paid", 0) / 100,
+            "payment_status": tx.get("payment_status") if tx else "unknown",
+            "payments": payments.get("items", [])
+        }
+    except Exception as e:
+        logger.error(f"Failed to fetch payment status: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch payment status")
+
+
 
 @api_router.post("/webhook/stripe")
 async def stripe_webhook(request: Request):

@@ -707,17 +707,29 @@ async def stripe_webhook(request: Request):
 async def get_analytics(user: dict = Depends(get_current_user)):
     tenant_id = user.get("tenant_id")
     
-    total_bookings = await db.bookings.count_documents({"tenant_id": tenant_id}) if tenant_id else 0
-    total_venues = await db.venues.count_documents({"tenant_id": tenant_id}) if tenant_id else 0
-    total_customers = await db.customers.count_documents({"tenant_id": tenant_id}) if tenant_id else 0
+    # For super_admin, show aggregated stats; for others, show tenant-specific
+    if user["role"] == "super_admin":
+        total_bookings = await db.bookings.count_documents({})
+        total_venues = await db.venues.count_documents({})
+        total_customers = await db.customers.count_documents({})
+        revenue_pipeline = [
+            {"$match": {"payment_status": "paid"}},
+            {"$group": {"_id": None, "total": {"$sum": "$total_price"}}}
+        ]
+    else:
+        total_bookings = await db.bookings.count_documents({"tenant_id": tenant_id}) if tenant_id else 0
+        total_venues = await db.venues.count_documents({"tenant_id": tenant_id}) if tenant_id else 0
+        total_customers = await db.customers.count_documents({"tenant_id": tenant_id}) if tenant_id else 0
+        revenue_pipeline = [
+            {"$match": {"payment_status": "paid", "tenant_id": tenant_id}},
+            {"$group": {"_id": None, "total": {"$sum": "$total_price"}}}
+        ] if tenant_id else []
     
-    # Calculate revenue
-    revenue_pipeline = [
-        {"$match": {"payment_status": "paid"}},
-        {"$group": {"_id": None, "total": {"$sum": "$total_price"}}}
-    ]
-    revenue_result = await db.bookings.aggregate(revenue_pipeline).to_list(1)
-    total_revenue = revenue_result[0]["total"] if revenue_result else 0
+    if revenue_pipeline:
+        revenue_result = await db.bookings.aggregate(revenue_pipeline).to_list(1)
+        total_revenue = revenue_result[0]["total"] if revenue_result else 0
+    else:
+        total_revenue = 0
     
     return {
         "total_bookings": total_bookings,
@@ -735,7 +747,8 @@ async def get_venue_qr_code(venue_id: str, user: dict = Depends(get_current_user
         raise HTTPException(status_code=404, detail="Venue not found")
     
     tenant = await db.tenants.find_one({"_id": ObjectId(venue["tenant_id"])})
-    booking_url = f"https://{tenant['subdomain']}.kelika.com/book/{venue_id}"
+    app_domain = os.environ.get("APP_DOMAIN", "emergent.host")
+    booking_url = f"https://{tenant['subdomain']}.{app_domain}/book/{venue_id}"
     
     qr_code_data = generate_qr_code(booking_url)
     

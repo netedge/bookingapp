@@ -142,6 +142,7 @@ class VenueCreate(BaseModel):
     description: str
     address: str
     image_url: Optional[str] = None
+    tenant_id: Optional[str] = None  # Allow super_admin to specify tenant
 
 class CourtCreate(BaseModel):
     venue_id: str
@@ -149,6 +150,7 @@ class CourtCreate(BaseModel):
     sport_type: str
     capacity: int = 10
     indoor: bool = True
+    tenant_id: Optional[str] = None  # Allow super_admin to specify tenant
 
 class PricingRuleCreate(BaseModel):
     court_id: str
@@ -157,6 +159,7 @@ class PricingRuleCreate(BaseModel):
     start_time: Optional[str] = None
     end_time: Optional[str] = None
     days_of_week: Optional[List[int]] = None
+    tenant_id: Optional[str] = None  # Allow super_admin to specify tenant
 
 class BookingCreate(BaseModel):
     court_id: str
@@ -437,11 +440,19 @@ async def update_tenant(tenant_id: str, update_data: TenantUpdate, user: dict = 
 
 @api_router.post("/venues")
 async def create_venue(venue_data: VenueCreate, user: dict = Depends(get_current_user)):
-    if user["role"] not in ["tenant_admin", "staff"]:
+    if user["role"] not in ["super_admin", "tenant_admin", "staff"]:
         raise HTTPException(status_code=403, detail="Unauthorized")
     
+    # Determine tenant_id
+    if user["role"] == "super_admin":
+        if not venue_data.tenant_id:
+            raise HTTPException(status_code=400, detail="tenant_id required for super_admin")
+        tenant_id = venue_data.tenant_id
+    else:
+        tenant_id = user["tenant_id"]
+    
     venue_doc = {
-        "tenant_id": user["tenant_id"],
+        "tenant_id": tenant_id,
         "name": venue_data.name,
         "description": venue_data.description,
         "address": venue_data.address,
@@ -471,11 +482,19 @@ async def get_venues(tenant_id: Optional[str] = Query(None), user: dict = Depend
 
 @api_router.post("/courts")
 async def create_court(court_data: CourtCreate, user: dict = Depends(get_current_user)):
-    if user["role"] not in ["tenant_admin", "staff"]:
+    if user["role"] not in ["super_admin", "tenant_admin", "staff"]:
         raise HTTPException(status_code=403, detail="Unauthorized")
     
+    # Determine tenant_id
+    if user["role"] == "super_admin":
+        if not court_data.tenant_id:
+            raise HTTPException(status_code=400, detail="tenant_id required for super_admin")
+        tenant_id = court_data.tenant_id
+    else:
+        tenant_id = user["tenant_id"]
+    
     court_doc = {
-        "tenant_id": user["tenant_id"],
+        "tenant_id": tenant_id,
         "venue_id": court_data.venue_id,
         "name": court_data.name,
         "sport_type": court_data.sport_type,
@@ -502,11 +521,19 @@ async def get_courts(venue_id: Optional[str] = Query(None), user: dict = Depends
 
 @api_router.post("/pricing")
 async def create_pricing_rule(pricing_data: PricingRuleCreate, user: dict = Depends(get_current_user)):
-    if user["role"] not in ["tenant_admin", "staff"]:
+    if user["role"] not in ["super_admin", "tenant_admin", "staff"]:
         raise HTTPException(status_code=403, detail="Unauthorized")
     
+    # Determine tenant_id
+    if user["role"] == "super_admin":
+        if not pricing_data.tenant_id:
+            raise HTTPException(status_code=400, detail="tenant_id required for super_admin")
+        tenant_id = pricing_data.tenant_id
+    else:
+        tenant_id = user["tenant_id"]
+    
     pricing_doc = {
-        "tenant_id": user["tenant_id"],
+        "tenant_id": tenant_id,
         "court_id": pricing_data.court_id,
         "rule_type": pricing_data.rule_type,
         "price": pricing_data.price,

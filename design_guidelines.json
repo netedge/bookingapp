@@ -1,0 +1,177 @@
+{
+  "theme": "light",
+  "archetype": "1 (Organic & Earthy - Adapted to 5 Elements)",
+  "design_philosophy": "A harmonious blend of the 5 natural elements (Earth, Water, Fire, Air, Space) applied to a high-performance sports venue SaaS. The interface prioritizes clarity, generous spacing, and organic colors, rejecting the sterile 'corporate tech' look for a grounded, welcoming, and energetic experience.",
+  "typography": {
+    "fonts": {
+      "heading": "Outfit",
+      "body": "Manrope",
+      "mono": "JetBrains Mono"
+    },
+    "hierarchy": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight text-indigo-950",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl font-medium tracking-tight text-indigo-950",
+      "h3": "text-xl sm:text-2xl font-medium text-indigo-900",
+      "h4": "text-lg sm:text-xl font-medium text-indigo-900",
+      "body": "text-base text-stone-600 leading-relaxed",
+      "small": "text-sm text-stone-500",
+      "overline": "text-xs font-bold uppercase tracking-[0.2em] text-emerald-700"
+    }
+  },
+  "colors": {
+    "backgrounds": {
+      "base": "bg-stone-50",
+      "card": "bg-white",
+      "glass": "bg-white/70 backdrop-blur-xl border border-white/40",
+      "marketing_hero": "bg-stone-100"
+    },
+    "elements": {
+      "earth": {
+        "primary": "bg-emerald-700",
+        "primary_hover": "hover:bg-emerald-800",
+        "text": "text-emerald-700",
+        "badge_bg": "bg-emerald-50",
+        "badge_text": "text-emerald-800",
+        "border": "border-emerald-200"
+      },
+      "water": {
+        "primary": "bg-sky-600",
+        "primary_hover": "hover:bg-sky-700",
+        "text": "text-sky-700",
+        "badge_bg": "bg-sky-50",
+        "badge_text": "text-sky-800",
+        "border": "border-sky-200"
+      },
+      "fire": {
+        "primary": "bg-orange-600",
+        "primary_hover": "hover:bg-orange-700",
+        "text": "text-orange-600",
+        "badge_bg": "bg-orange-50",
+        "badge_text": "text-orange-800",
+        "border": "border-orange-200"
+      },
+      "air": {
+        "base": "bg-stone-50",
+        "card": "bg-white",
+        "text": "text-stone-400",
+        "border": "border-stone-200"
+      },
+      "space": {
+        "primary": "bg-indigo-950",
+        "primary_hover": "hover:bg-indigo-900",
+        "text": "text-indigo-950",
+        "badge_bg": "bg-indigo-50",
+        "badge_text": "text-indigo-800",
+        "border": "border-indigo-200"
+      }
+    },
+    "text": {
+      "primary": "text-indigo-950",
+      "secondary": "text-stone-600",
+      "muted": "text-stone-400",
+      "inverse": "text-white"
+    },
+    "borders": {
+      "default": "border-stone-200",
+      "focus": "focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500"
+    }
+  },
+  "spacing_and_layout": {
+    "dashboards": {
+      "grid": "grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6",
+      "container_padding": "p-6 sm:p-8",
+      "card_padding": "p-6"
+    },
+    "marketing": {
+      "grid": "grid-cols-1 md:grid-cols-8 lg:grid-cols-12 gap-8 lg:gap-12",
+      "section_padding": "py-24 lg:py-32 px-6 sm:px-12 lg:px-24",
+      "bento_hero": "col-span-full md:col-span-8 row-span-2",
+      "bento_tall": "col-span-full md:col-span-4 row-span-2"
+    },
+    "corners": {
+      "card": "rounded-2xl",
+      "button": "rounded-xl",
+      "input": "rounded-lg",
+      "badge": "rounded-full"
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "inline-flex items-center justify-center px-6 py-3 text-sm font-medium text-white transition-all bg-emerald-700 rounded-xl hover:bg-emerald-800 hover:-translate-y-0.5 shadow-sm hover:shadow-md",
+      "secondary": "inline-flex items-center justify-center px-6 py-3 text-sm font-medium transition-all bg-white border border-stone-200 text-indigo-950 rounded-xl hover:bg-stone-50 hover:border-stone-300 shadow-sm",
+      "ghost": "inline-flex items-center justify-center px-4 py-2 text-sm font-medium transition-colors text-stone-600 rounded-xl hover:text-indigo-950 hover:bg-stone-100",
+      "danger_fire": "inline-flex items-center justify-center px-6 py-3 text-sm font-medium text-white transition-all bg-orange-600 rounded-xl hover:bg-orange-700 shadow-sm"
+    },
+    "cards": {
+      "dashboard_widget": "bg-white border border-stone-200 rounded-2xl shadow-sm transition-all hover:shadow-md",
+      "marketing_feature": "bg-stone-50 border border-stone-200 rounded-3xl p-8 relative overflow-hidden group"
+    },
+    "inputs": {
+      "default": "w-full px-4 py-3 bg-white border border-stone-200 rounded-lg text-indigo-950 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all",
+      "label": "block mb-2 text-sm font-medium text-indigo-950"
+    },
+    "navigation": {
+      "header": "sticky top-0 z-50 w-full bg-white/80 backdrop-blur-xl border-b border-stone-200/50",
+      "sidebar": "fixed inset-y-0 left-0 z-40 w-64 bg-indigo-950 border-r border-indigo-900 text-stone-300"
+    }
+  },
+  "motion": {
+    "hover": "transition-all duration-200 ease-out",
+    "page_transition": {
+      "initial": { "opacity": 0, "y": 10 },
+      "animate": { "opacity": 1, "y": 0 },
+      "transition": { "duration": 0.4, "ease": [0.22, 1, 0.36, 1] }
+    },
+    "stagger": {
+      "container": "staggerChildren: 0.1",
+      "item": { "opacity": [0, 1], "y": [20, 0] }
+    }
+  },
+  "icons": {
+    "library": "@phosphor-icons/react",
+    "style": "duotone",
+    "size": {
+      "small": "w-4 h-4",
+      "default": "w-5 h-5",
+      "large": "w-8 h-8",
+      "hero": "w-12 h-12"
+    }
+  },
+  "media": {
+    "hero_sports_venue": {
+      "url": "https://static.prod-images.emergentagent.com/jobs/e96b9494-564d-4eaf-9ba4-2ffac064b6b1/images/a38b0357570444e03c9e81810c8a3a0daa5d0c118e74c914c2adeb8c20f5b247.png",
+      "description": "Wide-angle photograph of a modern, high-end indoor sports venue at golden hour.",
+      "category": "marketing_hero"
+    },
+    "elements_abstract_bg": {
+      "url": "https://static.prod-images.emergentagent.com/jobs/e96b9494-564d-4eaf-9ba4-2ffac064b6b1/images/5dc98249d98ee89ef94615343a7bfdf4dd1e1493f2801ebd64fc242f8381b1c0.png",
+      "description": "Abstract textural background inspired by the 5 elements of nature.",
+      "category": "backgrounds_and_auth"
+    },
+    "tennis_court": {
+      "url": "https://images.unsplash.com/photo-1765124540460-b884e248ac2b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzZ8MHwxfHNlYXJjaHwzfHxzcG9ydHMlMjB2ZW51ZSUyMHRlbm5pcyUyMGNvdXJ0fGVufDB8fHx8MTc3NDc3MzM3NHww&ixlib=rb-4.1.0&q=85",
+      "description": "White chairs and table on a clay tennis court.",
+      "category": "venue_placeholder"
+    },
+    "football_turf": {
+      "url": "https://images.unsplash.com/photo-1758227231013-8cff978f1dae?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTJ8MHwxfHNlYXJjaHwzfHxmb290YmFsbCUyMHR1cmYlMjBzdGFkaXVtfGVufDB8fHx8MTc3NDc3MzM3NHww&ixlib=rb-4.1.0&q=85",
+      "description": "Empty soccer stadium with green field and orange seats.",
+      "category": "venue_placeholder"
+    },
+    "basketball_court": {
+      "url": "https://images.unsplash.com/photo-1559369064-c4d65141e408?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2ODl8MHwxfHNlYXJjaHwyfHxiYXNrZXRiYWxsJTIwY291cnQlMjBpbmRvb3J8ZW58MHx8fHwxNzc0NzczMzc1fDA&ixlib=rb-4.1.0&q=85",
+      "description": "basketball court indoor",
+      "category": "venue_placeholder"
+    }
+  },
+  "instructions_to_main_agent": {
+    "1": "Strictly adhere to the 5 elements color palette mapping: Earth (Emerald), Water (Sky Blue), Fire (Orange), Air (Stone/White), Space (Indigo). Use these intentionally. For example, use Fire (Orange) for alerts or high-peak pricing times, Earth (Emerald) for primary actions like booking, and Space (Indigo) for high-level dashboard text.",
+    "2": "Never use pure white (#FFFFFF) for page backgrounds, use bg-stone-50 instead to give an airy, organic feel.",
+    "3": "Always apply `data-testid` to all interactive elements for testing.",
+    "4": "For the Booking Calendar UI, use a grid layout. Color-code time slots based on availability or pricing (e.g. Fire/Orange for Peak, Air/Stone for Off-Peak).",
+    "5": "Install @phosphor-icons/react for icons. Use the 'duotone' weight.",
+    "6": "The Super Admin and Tenant Admin dashboards must use 'The Control Room Grid' pattern (tight gaps, dense information, cardless or 1px border cards). The customer booking page must use 'The Bento Grid' pattern (generous padding, asymmetrical, highly visual).",
+    "7": "Do not build complex components from scratch. Utilize Shadcn components (calendar, dropdown, dialog, tabs) but strip their default borders and radii to match the 'rounded-xl' and 'border-stone-200' aesthetics defined here.",
+    "8": "Use Framer Motion to add subtle entrances to dashboard widgets."
+  }
+}

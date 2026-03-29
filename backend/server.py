@@ -824,14 +824,15 @@ async def get_revenue_trend(days: int = 30, user: dict = Depends(get_current_use
 async def get_court_occupancy(user: dict = Depends(get_current_user)):
     tenant_id = user.get("tenant_id")
     
-    # Get all courts
+    # Get all courts (keep _id for matching)
     court_query = {"tenant_id": tenant_id} if tenant_id and user["role"] != "super_admin" else {}
     courts = await db.courts.find(court_query).to_list(100)
     
-    # Get booking counts for all courts in one query (prevents N+1)
-    court_ids = [court.get("id") for court in courts if court.get("id")]
-    if not court_ids:
+    if not courts:
         return []
+    
+    # Get booking counts for all courts in one query (prevents N+1)
+    court_ids = [str(court["_id"]) for court in courts]
     
     booking_pipeline = [
         {"$match": {"court_id": {"$in": court_ids}, "status": {"$in": ["confirmed", "completed"]}}},
@@ -842,14 +843,14 @@ async def get_court_occupancy(user: dict = Depends(get_current_user)):
     
     occupancy_data = []
     for court in courts:
-        court_id = court.get("id")
+        court_id = str(court["_id"])
         booking_count = booking_map.get(court_id, 0)
         
         occupancy_data.append({
             "court_name": court.get("name"),
             "sport_type": court.get("sport_type"),
             "bookings": booking_count,
-            "occupancy_rate": min(booking_count / 30 * 100, 100)  # Rough estimate
+            "occupancy_rate": min(booking_count / 30 * 100, 100)
         })
     
     return sorted(occupancy_data, key=lambda x: x["occupancy_rate"], reverse=True)

@@ -777,10 +777,6 @@ class PaymentCheckoutRequest(BaseModel):
     booking_id: str
     origin_url: str
 
-@api_router.post("/payments/checkout")
-async def create_checkout_session(
-
-
 # ============ BOOKING CANCELLATION ============
 
 @api_router.put("/bookings/{booking_id}/cancel")
@@ -1013,7 +1009,8 @@ async def update_tenant_subscription(
     
     return {"message": "Subscription updated successfully"}
 
-
+@api_router.post("/payments/checkout")
+async def create_checkout_session(
     request: PaymentCheckoutRequest,
     user: dict = Depends(get_current_user)
 ):
@@ -1163,7 +1160,15 @@ async def verify_razorpay_payment(
         if tx:
             await db.bookings.update_one(
                 {"_id": ObjectId(tx["booking_id"])},
-
+                {"$set": {"status": "confirmed", "payment_status": "paid"}}
+            )
+        
+        return {"status": "success", "message": "Payment verified successfully"}
+    except razorpay.errors.SignatureVerificationError:
+        raise HTTPException(status_code=400, detail="Invalid payment signature")
+    except Exception as e:
+        logger.error(f"Payment verification failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Payment verification failed")
 
 # ============ PAYPAL PAYMENT ENDPOINTS ============
 
@@ -1363,17 +1368,6 @@ async def skrill_payment_status(request: Request):
     except Exception as e:
         logger.error(f"Skrill webhook processing failed: {str(e)}")
         return {"status": "error"}
-
-
-                {"$set": {"status": "confirmed", "payment_status": "paid"}}
-            )
-        
-        return {"status": "success", "message": "Payment verified successfully"}
-    except razorpay.errors.SignatureVerificationError:
-        raise HTTPException(status_code=400, detail="Invalid payment signature")
-    except Exception as e:
-        logger.error(f"Payment verification failed: {str(e)}")
-        raise HTTPException(status_code=500, detail="Payment verification failed")
 
 @api_router.get("/payments/razorpay/status/{order_id}")
 async def get_razorpay_payment_status(order_id: str):

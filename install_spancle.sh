@@ -287,7 +287,6 @@ ENVEOF
 # Install Python dependencies
 pip install --upgrade pip
 pip install -r requirements.txt
-pip install emergentintegrations --extra-index-url https://d33sy5i8bnduwe.cloudfront.net/simple/
 
 deactivate
 log "Backend setup complete"

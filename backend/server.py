@@ -23,7 +23,7 @@ import base64
 from paypalcheckoutsdk.core import PayPalHttpClient, SandboxEnvironment, LiveEnvironment
 from paypalcheckoutsdk.orders import OrdersCreateRequest, OrdersCaptureRequest
 from typing import Optional, List, Dict, Any
-from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionResponse, CheckoutStatusResponse, CheckoutSessionRequest
+import stripe as stripe_lib
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
@@ -1018,49 +1018,53 @@ async def create_checkout_session(
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
     
-    stripe_key = os.environ.get("STRIPE_API_KEY")
-    webhook_url = f"{request.origin_url}/api/webhook/stripe"
-    stripe_checkout = StripeCheckout(api_key=stripe_key, webhook_url=webhook_url)
+    stripe_lib.api_key = os.environ.get("STRIPE_API_KEY")
     
     success_url = f"{request.origin_url}/booking-success?session_id={{CHECKOUT_SESSION_ID}}"
     cancel_url = f"{request.origin_url}/booking-cancel"
     
-    checkout_request = CheckoutSessionRequest(
-        amount=booking["total_price"],
-        currency="usd",
+    session = stripe_lib.checkout.Session.create(
+        payment_method_types=["card"],
+        line_items=[{
+            "price_data": {
+                "currency": "usd",
+                "unit_amount": int(booking["total_price"] * 100),
+                "product_data": {"name": f"Booking {request.booking_id}"},
+            },
+            "quantity": 1,
+        }],
+        mode="payment",
         success_url=success_url,
         cancel_url=cancel_url,
-        metadata={"booking_id": request.booking_id}
+        metadata={"booking_id": request.booking_id},
     )
-    
-    session = await stripe_checkout.create_checkout_session(checkout_request)
     
     # Store payment transaction
     await db.payment_transactions.insert_one({
         "booking_id": request.booking_id,
-        "session_id": session.session_id,
+        "session_id": session.id,
         "amount": booking["total_price"],
         "currency": "usd",
         "payment_status": "pending",
         "created_at": datetime.now(timezone.utc)
     })
     
-    return {"url": session.url, "session_id": session.session_id}
+    return {"url": session.url, "session_id": session.id}
 
 @api_router.get("/payments/status/{session_id}")
 async def get_payment_status(session_id: str):
-    stripe_key = os.environ.get("STRIPE_API_KEY")
-    stripe_checkout = StripeCheckout(api_key=stripe_key, webhook_url="")
+    stripe_lib.api_key = os.environ.get("STRIPE_API_KEY")
     
-    status = await stripe_checkout.get_checkout_status(session_id)
+    session = stripe_lib.checkout.Session.retrieve(session_id)
+    payment_status = "paid" if session.payment_status == "paid" else session.payment_status
     
     # Update payment transaction
     await db.payment_transactions.update_one(
         {"session_id": session_id},
-        {"$set": {"payment_status": status.payment_status}}
+        {"$set": {"payment_status": payment_status}}
     )
     
-    if status.payment_status == "paid":
+    if payment_status == "paid":
         # Update booking status
         tx = await db.payment_transactions.find_one({"session_id": session_id})
         if tx:
@@ -1069,7 +1073,7 @@ async def get_payment_status(session_id: str):
                 {"$set": {"status": "confirmed", "payment_status": "paid"}}
             )
     
-    return status.model_dump()
+    return {"session_id": session_id, "payment_status": payment_status, "amount_total": session.amount_total}
 
 
 # ============ RAZORPAY PAYMENT ENDPOINTS ============
@@ -1398,12 +1402,16 @@ async def stripe_webhook(request: Request):
     body = await request.body()
     signature = request.headers.get("Stripe-Signature")
     
-    stripe_key = os.environ.get("STRIPE_API_KEY")
-    stripe_checkout = StripeCheckout(api_key=stripe_key, webhook_url="")
+    stripe_lib.api_key = os.environ.get("STRIPE_API_KEY")
+    webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
     
     try:
-        event = await stripe_checkout.handle_webhook(body, signature)
-        logger.info(f"Webhook received: {event.event_type}")
+        if webhook_secret:
+            event = stripe_lib.Webhook.construct_event(body, signature, webhook_secret)
+        else:
+            import json
+            event = json.loads(body)
+        logger.info(f"Webhook received: {event.get('type', 'unknown')}")
         return {"status": "success"}
     except Exception as e:
         logger.error(f"Webhook error: {str(e)}")

@@ -188,15 +188,16 @@ header "Step 4/8: Setting Up MongoDB 7"
 if mongosh --version &>/dev/null || mongod --version &>/dev/null; then
     log "MongoDB already installed"
 else
-    curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | \
-        gpg -o /usr/share/keyrings/mongodb-server-7.0.gpg --dearmor
+    # MongoDB 8.0 is required for Ubuntu 24.04 (noble) — 7.0 has no noble packages
+    curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc | \
+        gpg -o /usr/share/keyrings/mongodb-server-8.0.gpg --dearmor
 
-    echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/7.0 multiverse" | \
-        tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+    echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" | \
+        tee /etc/apt/sources.list.d/mongodb-org-8.0.list
 
     apt-get update -y
     apt-get install -y mongodb-org
-    log "MongoDB 7 installed"
+    log "MongoDB 8.0 installed"
 fi
 
 systemctl enable mongod

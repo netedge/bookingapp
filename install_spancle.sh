@@ -241,10 +241,16 @@ else
     exit 1
 fi
 
+# Set PROJECT_DIR to where backend/ and frontend/ actually are
+PROJECT_DIR="$INSTALL_DIR"
+if [ ! -d "$PROJECT_DIR/backend" ] && [ -d "$SCRIPT_DIR/backend" ]; then
+    PROJECT_DIR="$SCRIPT_DIR"
+fi
+
 # --- BACKEND SETUP ---
 log "Setting up backend..."
 
-cd "$INSTALL_DIR/backend"
+cd "$PROJECT_DIR/backend"
 
 python3.11 -m venv venv
 source venv/bin/activate
@@ -263,7 +269,7 @@ else
 fi
 
 # Write backend .env
-cat > "$INSTALL_DIR/backend/.env" << ENVEOF
+cat > "$PROJECT_DIR/backend/.env" << ENVEOF
 MONGO_URL="${MONGO_URL}"
 DB_NAME="${DB_NAME}"
 CORS_ORIGINS="${APP_URL},http://${APP_DOMAIN},https://${APP_DOMAIN},http://www.${APP_DOMAIN},https://www.${APP_DOMAIN}"
@@ -294,10 +300,10 @@ log "Backend setup complete"
 # --- FRONTEND SETUP ---
 log "Setting up frontend..."
 
-cd "$INSTALL_DIR/frontend"
+cd "$PROJECT_DIR/frontend"
 
 # Write frontend .env
-cat > "$INSTALL_DIR/frontend/.env" << ENVEOF
+cat > "$PROJECT_DIR/frontend/.env" << ENVEOF
 REACT_APP_BACKEND_URL=${APP_URL}
 ENVEOF
 
@@ -327,9 +333,9 @@ Requires=mongod.service
 Type=simple
 User=spancle
 Group=spancle
-WorkingDirectory=${INSTALL_DIR}/backend
-Environment=PATH=${INSTALL_DIR}/backend/venv/bin:/usr/bin:/bin
-ExecStart=${INSTALL_DIR}/backend/venv/bin/uvicorn server:app --host 0.0.0.0 --port ${BACKEND_PORT} --workers 4
+WorkingDirectory=${PROJECT_DIR}/backend
+Environment=PATH=${PROJECT_DIR}/backend/venv/bin:/usr/bin:/bin
+ExecStart=${PROJECT_DIR}/backend/venv/bin/uvicorn server:app --host 0.0.0.0 --port ${BACKEND_PORT} --workers 4
 Restart=always
 RestartSec=5
 StandardOutput=journal
@@ -340,8 +346,8 @@ WantedBy=multi-user.target
 SVCEOF
 
 # Frontend serve (using serve for production build)
-cd "$INSTALL_DIR/frontend"
-source "$INSTALL_DIR/backend/venv/bin/activate"
+cd "$PROJECT_DIR/frontend"
+source "$PROJECT_DIR/backend/venv/bin/activate"
 npm install -g serve 2>/dev/null || true
 deactivate
 
@@ -354,7 +360,7 @@ After=network.target
 Type=simple
 User=spancle
 Group=spancle
-WorkingDirectory=${INSTALL_DIR}/frontend
+WorkingDirectory=${PROJECT_DIR}/frontend
 ExecStart=/usr/bin/npx serve -s build -l ${FRONTEND_PORT}
 Restart=always
 RestartSec=5
@@ -493,7 +499,7 @@ echo -e "    sudo systemctl restart spancle-frontend"
 echo ""
 
 if [ "$STRIPE_KEY" = "sk_test_emergent" ]; then
-    warn "You are using demo payment keys. Update ${INSTALL_DIR}/backend/.env with real keys for production."
+    warn "You are using demo payment keys. Update ${PROJECT_DIR}/backend/.env with real keys for production."
 fi
 
 log "Setup complete. Visit your application URL to get started!"

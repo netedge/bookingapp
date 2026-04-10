@@ -48,7 +48,7 @@ const Landing = () => {
             <div className="w-10 h-10 rounded-xl bg-gradient-emerald flex items-center justify-center">
               <span className="text-white font-bold text-xl">K</span>
             </div>
-            <span className="text-2xl font-heading font-semibold text-indigo-950">Kelika</span>
+            <span className="text-2xl font-heading font-semibold text-indigo-950">Spancle</span>
           </div>
           <div className="flex items-center space-x-4">
             <button
@@ -81,7 +81,7 @@ const Landing = () => {
               Transform Your Sports Venue Into a Digital Business
             </h1>
             <p className="text-base text-stone-600 leading-relaxed mb-8 max-w-xl">
-              Kelika is a multi-tenant SaaS platform that empowers sports venue owners with white-labeled booking systems, payment processing, and complete business management tools.
+              Spancle is a multi-tenant SaaS platform that empowers sports venue owners with white-labeled booking systems, payment processing, and complete business management tools.
             </p>
             <div className="flex flex-wrap gap-4">
               <button
@@ -111,7 +111,7 @@ const Landing = () => {
             <div className="relative rounded-3xl overflow-hidden shadow-2xl border border-stone-200">
               <img
                 src="https://static.prod-images.emergentagent.com/jobs/e96b9494-564d-4eaf-9ba4-2ffac064b6b1/images/a38b0357570444e03c9e81810c8a3a0daa5d0c118e74c914c2adeb8c20f5b247.png"
-                alt="Kelika Dashboard"
+                alt="Spancle Dashboard"
                 className="w-full h-auto"
               />
             </div>
@@ -162,7 +162,7 @@ const Landing = () => {
             Ready to Transform Your Venue Business?
           </h2>
           <p className="text-base text-stone-300 leading-relaxed mb-8">
-            Join hundreds of sports venues already using Kelika to streamline operations and boost revenue.
+            Join hundreds of sports venues already using Spancle to streamline operations and boost revenue.
           </p>
           <button
             onClick={() => navigate('/register')}
@@ -178,7 +178,7 @@ const Landing = () => {
       {/* Footer */}
       <footer className="py-12 px-6 sm:px-12 bg-white border-t border-stone-200">
         <div className="max-w-7xl mx-auto text-center">
-          <p className="text-sm text-stone-500">© 2026 Kelika. All rights reserved.</p>
+          <p className="text-sm text-stone-500">© 2026 Spancle. All rights reserved.</p>
         </div>
       </footer>
     </div>

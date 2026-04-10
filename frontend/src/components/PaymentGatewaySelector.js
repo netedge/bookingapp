@@ -45,7 +45,7 @@ const PaymentGatewaySelector = ({ bookingId, amount, onSuccess }) => {
         amount: data.amount,
         currency: data.currency,
         order_id: data.order_id,
-        name: 'Kelika Sports',
+        name: 'Spancle Sports',
         description: 'Venue Booking Payment',
         handler: async (response) => {
           try {

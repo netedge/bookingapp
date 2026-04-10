@@ -1,4 +1,4 @@
-# Kelika - New Features Documentation
+# Spancle - New Features Documentation
 
 ## Features Added (Option 1 Implementation)
 

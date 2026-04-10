@@ -1,4 +1,4 @@
-# Kelika - Multi-Tenant SaaS Venue Booking Platform
+# Spancle - Multi-Tenant SaaS Venue Booking Platform
 
 ## Original Problem Statement
 Create a full-fledged multi-tenant SaaS application for venue booking. Use the 5 elements of earth for the color scheme. Needs to be mobile responsive. Provide database structure export for live migration. Features must include multi-gateway payment integrations (Razorpay, Stripe, PayPal, Skrill) and email notifications.

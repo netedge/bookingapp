@@ -87,7 +87,7 @@ const Dashboard = () => {
           <div className="w-10 h-10 rounded-xl bg-gradient-emerald flex items-center justify-center">
             <span className="text-white font-bold text-xl">K</span>
           </div>
-          <span className="text-2xl font-heading font-semibold text-white">Kelika</span>
+          <span className="text-2xl font-heading font-semibold text-white">Spancle</span>
         </div>
       </div>
 
@@ -496,7 +496,7 @@ const Dashboard = () => {
                   {tenants.map((tenant, index) => (
                     <tr key={index} className="border-b border-stone-200 hover:bg-stone-50">
                       <td className="px-6 py-4 text-sm text-stone-600">{tenant.business_name}</td>
-                      <td className="px-6 py-4 text-sm text-stone-600">{tenant.subdomain}.kelika.com</td>
+                      <td className="px-6 py-4 text-sm text-stone-600">{tenant.subdomain}.spancle.com</td>
                       <td className="px-6 py-4">
                         <span className="inline-flex px-3 py-1 text-xs font-medium rounded-full bg-emerald-50 text-emerald-800">
                           {tenant.status}

@@ -90,7 +90,7 @@ const CreateTenantModal = ({ isOpen, onClose, onSuccess }) => {
                 required
                 data-testid="subdomain-input"
               />
-              <p className="text-xs text-stone-500 mt-1">URL: {formData.subdomain || 'subdomain'}.kelika.com</p>
+              <p className="text-xs text-stone-500 mt-1">URL: {formData.subdomain || 'subdomain'}.spancle.com</p>
             </div>
 
             <div>

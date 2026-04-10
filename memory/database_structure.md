@@ -1,9 +1,9 @@
-# Kelika Database Structure
+# Spancle Database Structure
 
-This document describes the MongoDB database structure for the Kelika multi-tenant SaaS platform.
+This document describes the MongoDB database structure for the Spancle multi-tenant SaaS platform.
 
 ## Database Name
-`kelika_db`
+`spancle_db`
 
 ## Collections
 
@@ -184,9 +184,9 @@ To import this structure into your MongoDB:
 mongosh "mongodb://your-connection-string"
 ```
 
-2. Switch to the Kelika database:
+2. Switch to the Spancle database:
 ```javascript
-use kelika_db
+use spancle_db
 ```
 
 3. Create collections (MongoDB will auto-create, but you can do it manually):
@@ -214,7 +214,7 @@ db.password_reset_tokens.createIndex({ "expires_at": 1 }, { expireAfterSeconds: 
 5. Seed Super Admin (replace with your credentials):
 ```javascript
 db.users.insertOne({
-  email: "admin@kelika.com",
+  email: "admin@spancle.com",
   password_hash: "$2b$12$...", // Generate using bcrypt
   name: "Super Admin",
   role: "super_admin",

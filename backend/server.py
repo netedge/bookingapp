@@ -109,7 +109,7 @@ async def send_booking_confirmation_email(booking: dict, customer_email: str, ve
                 <p>We look forward to seeing you!</p>
             </div>
             <div class="footer">
-                <p>© 2026 Kelika Sports Venue Management</p>
+                <p>© 2026 Spancle Sports Venue Management</p>
             </div>
         </div>
     </body>
@@ -158,7 +158,7 @@ async def send_booking_cancellation_email(booking: dict, customer_email: str, ve
                 <p>If you have any questions, please contact the venue directly.</p>
             </div>
             <div class="footer">
-                <p>© 2026 Kelika Sports Venue Management</p>
+                <p>© 2026 Spancle Sports Venue Management</p>
             </div>
         </div>
     </body>
@@ -327,7 +327,7 @@ async def startup_event():
     await seed_admin()
 
 async def seed_admin():
-    admin_email = os.environ.get("ADMIN_EMAIL", "admin@kelika.com")
+    admin_email = os.environ.get("ADMIN_EMAIL", "admin@spancle.com")
     admin_password = os.environ.get("ADMIN_PASSWORD", "admin123")
     
     existing = await db.users.find_one({"email": admin_email})

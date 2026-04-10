@@ -40,7 +40,7 @@ const Login = () => {
               <SignIn className="w-6 h-6 text-white" weight="bold" />
             </div>
             <h1 className="text-2xl sm:text-3xl font-medium tracking-tight text-indigo-950">Welcome Back</h1>
-            <p className="text-base text-stone-600 mt-2">Sign in to your Kelika account</p>
+            <p className="text-base text-stone-600 mt-2">Sign in to your Spancle account</p>
           </div>
 
           {error && (

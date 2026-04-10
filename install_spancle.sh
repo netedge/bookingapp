@@ -228,9 +228,13 @@ mkdir -p "$INSTALL_DIR"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [ -d "$SCRIPT_DIR/backend" ] && [ -d "$SCRIPT_DIR/frontend" ]; then
-    log "Copying application files from $SCRIPT_DIR..."
-    cp -r "$SCRIPT_DIR/backend" "$INSTALL_DIR/"
-    cp -r "$SCRIPT_DIR/frontend" "$INSTALL_DIR/"
+    if [ "$(realpath "$SCRIPT_DIR")" = "$(realpath "$INSTALL_DIR")" ]; then
+        log "Project already at install directory. Skipping copy."
+    else
+        log "Copying application files from $SCRIPT_DIR..."
+        cp -r "$SCRIPT_DIR/backend" "$INSTALL_DIR/"
+        cp -r "$SCRIPT_DIR/frontend" "$INSTALL_DIR/"
+    fi
 else
     error "Cannot find backend/ and frontend/ directories."
     error "Run this script from the Spancle project root directory."

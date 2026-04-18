@@ -37,7 +37,9 @@ Create a full-fledged multi-tenant SaaS application for venue booking. Use the 5
 - Venue management with image cards
 - Court management with venue selector
 - Booking calendar with time slots
-- Public booking pages for customers
+- Public booking pages for customers (path-based and subdomain-based)
+- Tenant "My Public Booking Links" section with copy-to-clipboard
+- Subdomain routing (e.g., elite-sports.spancle.com auto-redirects to booking page)
 - Multi-gateway payment integrations (Stripe, Razorpay, PayPal, Skrill)
 - Email notifications via Resend
 - Analytics charts (Revenue Trend, Court Occupancy)
@@ -48,7 +50,8 @@ Create a full-fledged multi-tenant SaaS application for venue booking. Use the 5
 - Recurring bookings
 - Database structure documentation
 - Mobile responsive design
-- Frontend & Backend screenshots captured and presented to user
+- Public API endpoints (no auth required for customer booking)
+- Ubuntu 24.04 installation script
 
 ## Key Database Collections
 - users, tenants, venues, courts, bookings, customers, payment_transactions, pricing_rules

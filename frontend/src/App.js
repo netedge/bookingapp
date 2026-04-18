@@ -6,6 +6,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import PublicBooking from './pages/PublicBooking';
+import SubdomainRouter from './components/SubdomainRouter';
 import './App.css';
 
 const ProtectedRoute = ({ children }) => {
@@ -54,35 +55,38 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/book/:subdomain/:venueId" element={<PublicBooking />} />
-          <Route path="/book/:venueId" element={<PublicBooking />} />
-          <Route
-            path="/login"
-            element={
-              <PublicRoute>
-                <Login />
-              </PublicRoute>
-            }
-          />
-          <Route
-            path="/register"
-            element={
-              <PublicRoute>
-                <Register />
-              </PublicRoute>
-            }
-          />
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
+        <SubdomainRouter>
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/book/:subdomain/:venueId" element={<PublicBooking />} />
+            <Route path="/book/:subdomain" element={<PublicBooking />} />
+            <Route path="/book" element={<PublicBooking />} />
+            <Route
+              path="/login"
+              element={
+                <PublicRoute>
+                  <Login />
+                </PublicRoute>
+              }
+            />
+            <Route
+              path="/register"
+              element={
+                <PublicRoute>
+                  <Register />
+                </PublicRoute>
+              }
+            />
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </SubdomainRouter>
       </BrowserRouter>
     </AuthProvider>
   );

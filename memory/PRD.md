@@ -71,6 +71,14 @@ Auth, Tenants, Venues, Courts, Bookings, Customers, Payments (Stripe/Razorpay/Pa
 ## Code Quality (Completed Apr 2026)
 - All React useEffect hooks have proper dependency arrays via useCallback
 - Array index keys replaced with stable unique IDs throughout
-- use-toast hook dependency fix
-- Python linting clean
+- Dashboard.js split from 627 lines → Dashboard.js (215 lines) + SidebarNav, DashboardOverview, TenantManagement, BookingLinksSection sub-components
+- CourtManagement.js nested ternary extracted into renderCourtContent + CourtList
+- BookingCalendar.js & PublicBooking.js nested ternaries extracted into getSlotClassName helpers
+- AnalyticsCharts.js nested ternary extracted into getOccupancyGradient helper
+- Backend: send_booking_confirmation_email split into build_booking_confirmation_html + send function
+- Backend: login() split into verify_credentials() + set_auth_cookies() helpers
+- Backend: create_recurring_booking() split into generate_recurrence_dates() + build_recurring_booking_doc()
+- Backend: create_paypal_order() split into build_paypal_order_body() + extract_paypal_approval_url()
+- Backend: prepare_skrill_payment() split into build_skrill_payload() helper
+- All console.log/error removed from production frontend code
 - All linting passes (ESLint + Ruff)

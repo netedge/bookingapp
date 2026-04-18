@@ -20,7 +20,7 @@ const CourtManagement = ({ venueId, venueName }) => {
       const { data } = await axios.get(`${API}/courts?venue_id=${venueId}`, { withCredentials: true });
       setCourts(data);
     } catch (error) {
-      console.error('Failed to fetch courts:', error);
+      // silently ignore
     } finally {
       setLoading(false);
     }
@@ -42,6 +42,24 @@ const CourtManagement = ({ venueId, venueName }) => {
     } catch (error) {
       alert(error.response?.data?.detail || 'Failed to create court');
     }
+  };
+
+  const renderCourtContent = () => {
+    if (loading) {
+      return (
+        <div className="text-center py-8">
+          <div className="w-8 h-8 border-4 border-emerald-700 border-t-transparent rounded-full animate-spin mx-auto"></div>
+        </div>
+      );
+    }
+    if (courts.length === 0) {
+      return (
+        <div className="text-center py-12">
+          <p className="text-stone-500">No courts yet. Add your first court to get started.</p>
+        </div>
+      );
+    }
+    return <CourtList courts={courts} />;
   };
 
   return (
@@ -130,35 +148,31 @@ const CourtManagement = ({ venueId, venueName }) => {
         </form>
       )}
 
-      {loading ? (
-        <div className="text-center py-8">
-          <div className="w-8 h-8 border-4 border-emerald-700 border-t-transparent rounded-full animate-spin mx-auto"></div>
-        </div>
-      ) : courts.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-stone-500">No courts yet. Add your first court to get started.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {courts.map((court) => (
-            <div
-              key={court.id || court._id}
-              className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl"
-              data-testid={`court-card-${court.id || court._id}`}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-lg font-medium text-indigo-950">{court.name}</h4>
-                <CheckCircle className="w-5 h-5 text-emerald-700" weight="fill" />
-              </div>
-              <p className="text-sm text-stone-600 mb-1">Sport: {court.sport_type}</p>
-              <p className="text-sm text-stone-600 mb-1">Capacity: {court.capacity} people</p>
-              <p className="text-sm text-stone-600">{court.indoor ? 'Indoor' : 'Outdoor'}</p>
-            </div>
-          ))}
-        </div>
-      )}
+      {renderCourtContent()}
     </div>
   );
 };
+
+function CourtList({ courts }) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {courts.map((court) => (
+        <div
+          key={court.id || court._id}
+          className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl"
+          data-testid={`court-card-${court.id || court._id}`}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-lg font-medium text-indigo-950">{court.name}</h4>
+            <CheckCircle className="w-5 h-5 text-emerald-700" weight="fill" />
+          </div>
+          <p className="text-sm text-stone-600 mb-1">Sport: {court.sport_type}</p>
+          <p className="text-sm text-stone-600 mb-1">Capacity: {court.capacity} people</p>
+          <p className="text-sm text-stone-600">{court.indoor ? 'Indoor' : 'Outdoor'}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default CourtManagement;

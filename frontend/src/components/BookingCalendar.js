@@ -37,7 +37,7 @@ const BookingCalendar = ({ courtId, courtName }) => {
       );
       setBookings(data);
     } catch (err) {
-      console.error('Failed to fetch bookings:', err);
+      // silently ignore
     }
   }, [courtId, selectedDate]);
 
@@ -95,6 +95,12 @@ const BookingCalendar = ({ courtId, courtName }) => {
     }
   };
 
+  const getSlotClassName = (isBooked, isPeak) => {
+    if (isBooked) return 'bg-stone-200 border-stone-400 cursor-not-allowed opacity-50';
+    if (isPeak) return 'bg-orange-50 border-orange-200 hover:border-orange-600 hover:bg-orange-100';
+    return 'bg-emerald-50 border-emerald-200 hover:border-emerald-600 hover:bg-emerald-100';
+  };
+
   return (
     <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6">
       <div className="mb-6">
@@ -140,13 +146,7 @@ const BookingCalendar = ({ courtId, courtName }) => {
               key={`${selectedDate}-${slot.start}`}
               onClick={() => handleSlotClick(slot)}
               disabled={isBooked}
-              className={`p-3 rounded-xl border-2 transition-all text-left ${
-                isBooked
-                  ? 'bg-stone-200 border-stone-400 cursor-not-allowed opacity-50'
-                  : isPeak
-                  ? 'bg-orange-50 border-orange-200 hover:border-orange-600 hover:bg-orange-100'
-                  : 'bg-emerald-50 border-emerald-200 hover:border-emerald-600 hover:bg-emerald-100'
-              }`}
+              className={`p-3 rounded-xl border-2 transition-all text-left ${getSlotClassName(isBooked, isPeak)}`}
               data-testid={`time-slot-${slot.start}`}
             >
               <div className="flex items-center space-x-1 mb-1">

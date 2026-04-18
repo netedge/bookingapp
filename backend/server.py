@@ -76,13 +76,9 @@ logger = logging.getLogger(__name__)
 
 # ============ EMAIL NOTIFICATION HELPERS ============
 
-async def send_booking_confirmation_email(booking: dict, customer_email: str, venue_name: str, court_name: str):
-    """Send booking confirmation email"""
-    if not RESEND_API_KEY or RESEND_API_KEY == "re_demo_key":
-        logger.info(f"Email notification skipped (demo mode): Booking confirmation to {customer_email}")
-        return
-    
-    html_content = f"""
+def build_booking_confirmation_html(booking: dict, venue_name: str, court_name: str) -> str:
+    """Build the HTML template for booking confirmation email"""
+    return f"""
     <!DOCTYPE html>
     <html>
     <head>
@@ -102,7 +98,7 @@ async def send_booking_confirmation_email(booking: dict, customer_email: str, ve
     <body>
         <div class="container">
             <div class="header">
-                <h1>✓ Booking Confirmed!</h1>
+                <h1>Booking Confirmed!</h1>
             </div>
             <div class="content">
                 <p>Hi {booking.get('customer_name', 'there')},</p>
@@ -119,12 +115,21 @@ async def send_booking_confirmation_email(booking: dict, customer_email: str, ve
                 <p>We look forward to seeing you!</p>
             </div>
             <div class="footer">
-                <p>© 2026 Spancle Sports Venue Management</p>
+                <p>2026 Spancle Sports Venue Management</p>
             </div>
         </div>
     </body>
     </html>
     """
+
+
+async def send_booking_confirmation_email(booking: dict, customer_email: str, venue_name: str, court_name: str):
+    """Send booking confirmation email"""
+    if not RESEND_API_KEY or RESEND_API_KEY == "re_demo_key":
+        logger.info(f"Email notification skipped (demo mode): Booking confirmation to {customer_email}")
+        return
+    
+    html_content = build_booking_confirmation_html(booking, venue_name, court_name)
     
     try:
         params = {
@@ -413,21 +418,15 @@ async def register(request: RegisterRequest, response: Response):
         "tenant_id": request.tenant_id
     }
 
-@api_router.post("/auth/login")
-async def login(request: LoginRequest, response: Response, http_request: Request):
-    email = request.email.lower()
-    ip = http_request.client.host
-    identifier = f"{ip}:{email}"
-    
-    # Check brute force
+async def verify_credentials(email: str, password: str, identifier: str) -> dict:
+    """Verify user credentials and handle brute force protection. Returns user dict or raises HTTPException."""
     attempt_record = await db.login_attempts.find_one({"identifier": identifier})
     if attempt_record:
         if attempt_record.get("locked_until") and attempt_record["locked_until"] > datetime.now(timezone.utc):
             raise HTTPException(status_code=429, detail="Too many failed attempts. Try again later.")
     
     user = await db.users.find_one({"email": email})
-    if not user or not verify_password(request.password, user["password_hash"]):
-        # Increment failed attempts
+    if not user or not verify_password(password, user["password_hash"]):
         await db.login_attempts.update_one(
             {"identifier": identifier},
             {
@@ -441,13 +440,12 @@ async def login(request: LoginRequest, response: Response, http_request: Request
         )
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
-    # Clear failed attempts
     await db.login_attempts.delete_one({"identifier": identifier})
-    
-    user_id = str(user["_id"])
-    access_token = create_access_token(user_id, email, user["role"])
-    refresh_token = create_refresh_token(user_id)
-    
+    return user
+
+
+def set_auth_cookies(response: Response, access_token: str, refresh_token: str):
+    """Set HTTP-only auth cookies on the response."""
     response.set_cookie(
         key="access_token",
         value=access_token,
@@ -466,6 +464,21 @@ async def login(request: LoginRequest, response: Response, http_request: Request
         max_age=604800,
         path="/"
     )
+
+
+@api_router.post("/auth/login")
+async def login(request: LoginRequest, response: Response, http_request: Request):
+    email = request.email.lower()
+    ip = http_request.client.host
+    identifier = f"{ip}:{email}"
+    
+    user = await verify_credentials(email, request.password, identifier)
+    
+    user_id = str(user["_id"])
+    access_token = create_access_token(user_id, email, user["role"])
+    refresh_token = create_refresh_token(user_id)
+    
+    set_auth_cookies(response, access_token, refresh_token)
     
     return {
         "id": user_id,
@@ -871,56 +884,64 @@ class RecurringBookingCreate(BaseModel):
     days_of_week: List[int]  # 0=Monday, 6=Sunday
     total_price: float
 
+def generate_recurrence_dates(start_date_str: str, end_date_str: str, days_of_week: list) -> list:
+    """Generate all dates matching the recurrence pattern."""
+    from datetime import datetime as dt
+    start_date = dt.strptime(start_date_str, "%Y-%m-%d")
+    end_date = dt.strptime(end_date_str, "%Y-%m-%d")
+    dates = []
+    current_date = start_date
+    while current_date <= end_date:
+        if current_date.weekday() in days_of_week:
+            dates.append(current_date.strftime("%Y-%m-%d"))
+        current_date += timedelta(days=1)
+    return dates
+
+
+def build_recurring_booking_doc(booking_data, date_str: str) -> dict:
+    """Build a single booking document for a recurring series."""
+    return {
+        "court_id": booking_data.court_id,
+        "customer_email": booking_data.customer_email,
+        "customer_name": booking_data.customer_name,
+        "customer_phone": booking_data.customer_phone,
+        "date": date_str,
+        "start_time": booking_data.start_time,
+        "end_time": booking_data.end_time,
+        "total_price": booking_data.total_price,
+        "status": "confirmed",
+        "payment_status": "pending",
+        "recurring": True,
+        "created_at": datetime.now(timezone.utc)
+    }
+
+
 @api_router.post("/bookings/recurring")
 async def create_recurring_booking(booking_data: RecurringBookingCreate, user: dict = Depends(get_current_user)):
-    from datetime import datetime as dt
-    
-    start_date = dt.strptime(booking_data.start_date, "%Y-%m-%d")
-    end_date = dt.strptime(booking_data.end_date, "%Y-%m-%d")
+    dates = generate_recurrence_dates(booking_data.start_date, booking_data.end_date, booking_data.days_of_week)
     
     created_bookings = []
     conflicts = []
     
-    current_date = start_date
-    while current_date <= end_date:
-        if current_date.weekday() in booking_data.days_of_week:
-            date_str = current_date.strftime("%Y-%m-%d")
-            
-            # Check for conflicts
-            existing = await db.bookings.find_one({
-                "court_id": booking_data.court_id,
-                "date": date_str,
-                "status": {"$in": ["pending", "confirmed"]},
-                "$or": [
-                    {
-                        "start_time": {"$lt": booking_data.end_time},
-                        "end_time": {"$gt": booking_data.start_time}
-                    }
-                ]
-            })
-            
-            if not existing:
-                booking_doc = {
-                    "court_id": booking_data.court_id,
-                    "customer_email": booking_data.customer_email,
-                    "customer_name": booking_data.customer_name,
-                    "customer_phone": booking_data.customer_phone,
-                    "date": date_str,
-                    "start_time": booking_data.start_time,
-                    "end_time": booking_data.end_time,
-                    "total_price": booking_data.total_price,
-                    "status": "confirmed",
-                    "payment_status": "pending",
-                    "recurring": True,
-                    "created_at": datetime.now(timezone.utc)
+    for date_str in dates:
+        existing = await db.bookings.find_one({
+            "court_id": booking_data.court_id,
+            "date": date_str,
+            "status": {"$in": ["pending", "confirmed"]},
+            "$or": [
+                {
+                    "start_time": {"$lt": booking_data.end_time},
+                    "end_time": {"$gt": booking_data.start_time}
                 }
-                
-                result = await db.bookings.insert_one(booking_doc)
-                created_bookings.append({"date": date_str, "id": str(result.inserted_id)})
-            else:
-                conflicts.append(date_str)
+            ]
+        })
         
-        current_date += timedelta(days=1)
+        if not existing:
+            booking_doc = build_recurring_booking_doc(booking_data, date_str)
+            result = await db.bookings.insert_one(booking_doc)
+            created_bookings.append({"date": date_str, "id": str(result.inserted_id)})
+        else:
+            conflicts.append(date_str)
     
     return {
         "created_count": len(created_bookings),
@@ -1178,6 +1199,32 @@ class PayPalOrderRequest(BaseModel):
     return_url: str
     cancel_url: str
 
+def build_paypal_order_body(booking_id: str, amount: float, return_url: str, cancel_url: str) -> dict:
+    """Build the PayPal order request body."""
+    return {
+        "intent": "CAPTURE",
+        "purchase_units": [{
+            "reference_id": booking_id,
+            "amount": {
+                "currency_code": "USD",
+                "value": f"{amount:.2f}"
+            }
+        }],
+        "application_context": {
+            "return_url": return_url,
+            "cancel_url": cancel_url
+        }
+    }
+
+
+def extract_paypal_approval_url(links) -> str:
+    """Extract the approval URL from PayPal response links."""
+    for link in links:
+        if link.rel == "approve":
+            return link.href
+    return None
+
+
 @api_router.post("/payments/paypal/create-order")
 async def create_paypal_order(request: PayPalOrderRequest, user: dict = Depends(get_current_user)):
     if not paypal_client:
@@ -1190,24 +1237,12 @@ async def create_paypal_order(request: PayPalOrderRequest, user: dict = Depends(
     try:
         order_request = OrdersCreateRequest()
         order_request.prefer('return=representation')
-        order_request.request_body({
-            "intent": "CAPTURE",
-            "purchase_units": [{
-                "reference_id": request.booking_id,
-                "amount": {
-                    "currency_code": "USD",
-                    "value": f"{booking['total_price']:.2f}"
-                }
-            }],
-            "application_context": {
-                "return_url": request.return_url,
-                "cancel_url": request.cancel_url
-            }
-        })
+        order_request.request_body(
+            build_paypal_order_body(request.booking_id, booking['total_price'], request.return_url, request.cancel_url)
+        )
         
         response = paypal_client.execute(order_request)
         
-        # Store payment transaction
         await db.payment_transactions.insert_one({
             "booking_id": request.booking_id,
             "paypal_order_id": response.result.id,
@@ -1218,17 +1253,10 @@ async def create_paypal_order(request: PayPalOrderRequest, user: dict = Depends(
             "created_at": datetime.now(timezone.utc)
         })
         
-        # Get approval URL
-        approval_url = None
-        for link in response.result.links:
-            if link.rel == "approve":
-                approval_url = link.href
-                break
-        
         return {
             "order_id": response.result.id,
             "status": response.result.status,
-            "approval_url": approval_url
+            "approval_url": extract_paypal_approval_url(response.result.links)
         }
     except Exception as e:
         logger.error(f"PayPal order creation failed: {str(e)}")
@@ -1279,6 +1307,21 @@ class SkrillPaymentRequest(BaseModel):
     cancel_url: str
     status_url: str
 
+def build_skrill_payload(booking: dict, request) -> dict:
+    """Build the Skrill payment request payload."""
+    return {
+        "pay_to_email": SKRILL_MERCHANT_EMAIL,
+        "amount": f"{booking['total_price']:.2f}",
+        "currency": "EUR",
+        "return_url": request.return_url,
+        "cancel_url": request.cancel_url,
+        "status_url": request.status_url,
+        "transaction_id": str(booking["_id"]),
+        "detail1_description": f"Booking: {booking.get('customer_name', '')}",
+        "detail1_text": f"Date: {booking.get('date', '')} {booking.get('start_time', '')}"
+    }
+
+
 @api_router.post("/payments/skrill/prepare")
 async def prepare_skrill_payment(request: SkrillPaymentRequest):
     if not SKRILL_MERCHANT_EMAIL or not SKRILL_API_PASSWORD:
@@ -1289,47 +1332,33 @@ async def prepare_skrill_payment(request: SkrillPaymentRequest):
         raise HTTPException(status_code=404, detail="Booking not found")
     
     try:
-        payload = {
-            "pay_to_email": SKRILL_MERCHANT_EMAIL,
-            "amount": f"{booking['total_price']:.2f}",
-            "currency": "EUR",
-            "return_url": request.return_url,
-            "cancel_url": request.cancel_url,
-            "status_url": request.status_url,
-            "transaction_id": str(booking["_id"]),
-            "detail1_description": f"Booking: {booking.get('customer_name', '')}",
-            "detail1_text": f"Date: {booking.get('date', '')} {booking.get('start_time', '')}"
-        }
+        payload = build_skrill_payload(booking, request)
         
         import httpx
         async with httpx.AsyncClient() as client:
-            response = await client.post(
-                "https://pay.skrill.com",
-                data=payload,
-                timeout=30
-            )
+            response = await client.post("https://pay.skrill.com", data=payload, timeout=30)
             
-            if response.status_code == 200:
-                session_id = response.text
-                
-                # Store payment transaction
-                await db.payment_transactions.insert_one({
-                    "booking_id": request.booking_id,
-                    "skrill_session_id": session_id,
-                    "amount": booking["total_price"],
-                    "currency": "EUR",
-                    "payment_status": "created",
-                    "payment_method": "skrill",
-                    "created_at": datetime.now(timezone.utc)
-                })
-                
-                return {
-                    "session_id": session_id,
-                    "payment_url": f"https://pay.skrill.com/?sid={session_id}"
-                }
-            else:
+            if response.status_code != 200:
                 raise HTTPException(status_code=500, detail="Failed to create Skrill session")
-                
+            
+            session_id = response.text
+            
+            await db.payment_transactions.insert_one({
+                "booking_id": request.booking_id,
+                "skrill_session_id": session_id,
+                "amount": booking["total_price"],
+                "currency": "EUR",
+                "payment_status": "created",
+                "payment_method": "skrill",
+                "created_at": datetime.now(timezone.utc)
+            })
+            
+            return {
+                "session_id": session_id,
+                "payment_url": f"https://pay.skrill.com/?sid={session_id}"
+            }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Skrill payment preparation failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Payment preparation failed: {str(e)}")

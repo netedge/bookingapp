@@ -20,7 +20,7 @@ const AnalyticsCharts = () => {
       setRevenueTrend(trendRes.data);
       setCourtOccupancy(occupancyRes.data);
     } catch (error) {
-      console.error('Failed to fetch analytics:', error);
+      // silently ignore
     } finally {
       setLoading(false);
     }
@@ -39,6 +39,12 @@ const AnalyticsCharts = () => {
   }
 
   const maxRevenue = Math.max(...revenueTrend.revenue, 1);
+
+  const getOccupancyGradient = (rate) => {
+    if (rate > 75) return 'linear-gradient(90deg, #059669 0%, #047857 100%)';
+    if (rate > 50) return 'linear-gradient(90deg, #ea580c 0%, #c2410c 100%)';
+    return 'linear-gradient(90deg, #0284c7 0%, #0369a1 100%)';
+  };
 
   return (
     <div className="space-y-6">
@@ -131,11 +137,7 @@ const AnalyticsCharts = () => {
                     className="h-full rounded-full transition-all"
                     style={{
                       width: `${court.occupancy_rate}%`,
-                      background: court.occupancy_rate > 75
-                        ? 'linear-gradient(90deg, #059669 0%, #047857 100%)'
-                        : court.occupancy_rate > 50
-                        ? 'linear-gradient(90deg, #ea580c 0%, #c2410c 100%)'
-                        : 'linear-gradient(90deg, #0284c7 0%, #0369a1 100%)'
+                      background: getOccupancyGradient(court.occupancy_rate)
                     }}
                   ></div>
                 </div>

@@ -45,7 +45,7 @@ const PublicBooking = () => {
       const { data } = await axios.get(`${API}/public/bookings?court_id=${courtId}&date=${selectedDate}`);
       setBookings(data);
     } catch (err) {
-      console.error('Failed to fetch bookings:', err);
+      // silently ignore fetch error
     }
   }, [selectedCourt, selectedDate]);
 
@@ -58,7 +58,7 @@ const PublicBooking = () => {
         setSelectedCourt(data.courts[0]);
       }
     } catch (err) {
-      console.error('Failed to load venue details:', err);
+      // silently ignore load error
     }
   }, []);
 
@@ -122,6 +122,13 @@ const PublicBooking = () => {
         booking.start_time === startTime &&
         booking.status !== 'cancelled'
     );
+  };
+
+  const getSlotClassName = (isBooked, isSelected, isPeak) => {
+    if (isBooked) return 'bg-stone-200 border-stone-400 cursor-not-allowed opacity-50';
+    if (isSelected) return 'bg-emerald-600 border-emerald-600 text-white';
+    if (isPeak) return 'bg-orange-50 border-orange-200 hover:border-orange-600';
+    return 'bg-emerald-50 border-emerald-200 hover:border-emerald-600';
   };
 
   const handleBooking = async (e) => {
@@ -286,18 +293,10 @@ const PublicBooking = () => {
 
                   return (
                     <button
-                      key={idx}
+                      key={`${selectedDate}-${slot.start}`}
                       onClick={() => !isBooked && setSelectedSlot(slot)}
                       disabled={isBooked}
-                      className={`p-3 rounded-xl border-2 transition-all text-left ${
-                        isBooked
-                          ? 'bg-stone-200 border-stone-400 cursor-not-allowed opacity-50'
-                          : selectedSlot === slot
-                          ? 'bg-emerald-600 border-emerald-600 text-white'
-                          : isPeak
-                          ? 'bg-orange-50 border-orange-200 hover:border-orange-600'
-                          : 'bg-emerald-50 border-emerald-200 hover:border-emerald-600'
-                      }`}
+                      className={`p-3 rounded-xl border-2 transition-all text-left ${getSlotClassName(isBooked, selectedSlot === slot, isPeak)}`}
                       data-testid={`time-slot-${slot.start}`}
                     >
                       <div className="flex items-center space-x-1 mb-1">

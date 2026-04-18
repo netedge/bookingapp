@@ -20,7 +20,7 @@ const CourtManagement = ({ venueId, venueName }) => {
       const { data } = await axios.get(`${API}/courts?venue_id=${venueId}`, { withCredentials: true });
       setCourts(data);
     } catch (error) {
-      // silently ignore
+      setCourts([]);
     } finally {
       setLoading(false);
     }

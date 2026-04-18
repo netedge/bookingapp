@@ -56,7 +56,7 @@ app.include_router(api_router)
 
 # Startup & Seeding
 @app.on_event("startup")
-async def startup_event():
+async def startup_event() -> None:
     await db.users.create_index("email", unique=True)
     await db.tenants.create_index("subdomain", unique=True)
     await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
@@ -64,9 +64,9 @@ async def startup_event():
     await seed_admin()
 
 
-async def seed_admin():
-    admin_email = os.environ.get("ADMIN_EMAIL", "admin@spancle.com")
-    admin_password = os.environ.get("ADMIN_PASSWORD", "admin123")
+async def seed_admin() -> None:
+    admin_email: str = os.environ.get("ADMIN_EMAIL", "admin@spancle.com")
+    admin_password: str = os.environ.get("ADMIN_PASSWORD", "admin123")
 
     existing = await db.users.find_one({"email": admin_email})
     if existing is None:
@@ -88,5 +88,5 @@ async def seed_admin():
 
 
 @app.on_event("shutdown")
-async def shutdown_db_client():
+async def shutdown_db_client() -> None:
     client.close()

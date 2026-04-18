@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowRight, TrendUp, CalendarDots, CreditCard, QrCode, ChartLine } from '@phosphor-icons/react';
 import { motion } from 'framer-motion';
 
+const fadeUp = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 } };
+const fadeScale = { initial: { opacity: 0, scale: 0.95 }, animate: { opacity: 1, scale: 1 } };
+
 const Landing = () => {
   const navigate = useNavigate();
 
@@ -78,8 +81,8 @@ const Landing = () => {
       <section className="py-24 lg:py-32 px-6 sm:px-12">
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={fadeUp.initial}
+            animate={fadeUp.animate}
             transition={{ duration: 0.6 }}
           >
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight text-indigo-950 mb-6">
@@ -108,8 +111,8 @@ const Landing = () => {
           </motion.div>
 
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
+            initial={fadeScale.initial}
+            animate={fadeScale.animate}
             transition={{ duration: 0.6, delay: 0.2 }}
             className="relative"
           >
@@ -140,8 +143,8 @@ const Landing = () => {
             {features.map((feature, index) => (
               <motion.div
                 key={feature.id}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
+                initial={fadeUp.initial}
+                whileInView={fadeUp.animate}
                 transition={{ duration: 0.4, delay: index * 0.1 }}
                 viewport={{ once: true }}
                 className={`bg-white border rounded-2xl shadow-sm transition-all hover:shadow-md p-6 ${feature.color}`}

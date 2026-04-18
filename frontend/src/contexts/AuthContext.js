@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 
 const AuthContext = createContext(null);
@@ -66,14 +66,19 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       await axios.post(`${API}/auth/logout`, {}, { withCredentials: true });
-      setUser(false);
     } catch (error) {
-      // silently ignore
+      // Logout failure is non-critical; clear local state regardless
     }
+    setUser(false);
   };
 
+  const contextValue = useMemo(
+    () => ({ user, loading, login, register, logout, checkAuth }),
+    [user, loading, login, register, checkAuth] // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, checkAuth }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

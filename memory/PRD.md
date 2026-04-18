@@ -8,83 +8,42 @@ Create a full-fledged multi-tenant SaaS application for venue booking ("Spancle"
 - **Tenant Admin**: Venue owner managing their venues, courts, bookings
 - **Customer (B2C)**: End user booking venue slots via public booking pages
 
-## Core Requirements
-- Multi-tenant architecture with tenant isolation via tenant_id
-- User auth (JWT via HTTP-only cookies)
-- Venue and Court management (CRUD)
-- Booking calendar with time slot management
-- Recurring bookings support
-- Multi-gateway payments: Stripe, Razorpay, PayPal, Skrill
-- Email notifications via Resend
-- Analytics dashboard with charts
-- CSV export for bookings and analytics
-- Subscription billing tiers (Basic, Pro, Enterprise)
-- Public customer booking pages
-- QR code generation for venues
-- Bulk import for venues
-- Mobile responsive design
-- Password reset / Forgot password flow
-
 ## Tech Stack
 - Frontend: React.js (CRA), Tailwind CSS, Phosphor Icons, Framer Motion
 - Backend: FastAPI, Python 3.11+
 - Database: MongoDB (Motor async driver)
 - Architecture: Modular backend (routes/, shared modules), multi-tenant via tenant_id
 
-## Backend Architecture (Refactored Apr 18, 2026)
+## Backend Architecture
 ```
 /app/backend/
-├── server.py          (92 lines - App creation, CORS, startup, router imports)
-├── database.py        (MongoDB connection)
-├── config.py          (Environment variables, payment client init)
-├── auth.py            (Password hashing, JWT, get_current_user)
-├── models.py          (All Pydantic request models)
-├── email_service.py   (Email HTML templates + send functions)
-├── routes/
-│   ├── auth.py        (register, login, logout, me, forgot/reset password)
-│   ├── tenants.py     (Tenant CRUD + subscription plans)
-│   ├── venues.py      (Venue CRUD + bulk import)
-│   ├── courts.py      (Court CRUD)
-│   ├── bookings.py    (Booking CRUD + recurring + cancellation)
-│   ├── customers.py   (Customer CRUD)
-│   ├── payments.py    (Stripe, Razorpay, PayPal, Skrill + webhooks)
-│   ├── analytics.py   (Dashboard + charts + CSV exports)
-│   ├── public.py      (Public endpoints - no auth)
-│   └── qr.py          (QR code generation + pricing rules)
+├── server.py          (Entry point, CORS, startup, router imports)
+├── database.py, config.py, auth.py, models.py, email_service.py
+├── routes/ (auth, tenants, venues, courts, bookings, customers, payments, analytics, public, qr)
 ```
 
-## What's Been Implemented (All Complete)
-- Landing page with hero, features, pricing sections
-- Login/Register with cookie-based auth
-- Forgot Password / Password Reset flow (token-based via Resend email)
-- Brute force protection (5 failed attempts = 15 min lockout)
+## What's Been Implemented
+- Full auth: login, register, self-serve tenant registration, forgot/reset password, brute force protection
 - Tenant Dashboard: Overview, Venues, Courts, Bookings, Tenants
-- Venue management with image cards
-- Court management with venue selector
-- Booking calendar with time slots
-- Public booking pages for customers (path-based and subdomain-based)
-- Subdomain routing (e.g., elite-sports.spancle.com)
-- Multi-gateway payment integrations (Stripe, Razorpay, PayPal, Skrill)
+- Public booking pages (path + subdomain routing)
+- Multi-gateway payments (Stripe, Razorpay, PayPal, Skrill)
 - Email notifications via Resend
-- Analytics charts (Revenue Trend, Court Occupancy)
-- CSV export (Bookings, Analytics)
-- Subscription billing tiers
-- QR code generation
-- Bulk venue import
-- Recurring bookings
-- Mobile responsive design
-- Ubuntu 24.04 deployment script
-- Full rebranding to Spancle (no Emergent references)
-- Backend modular refactoring (server.py split into 17 clean files)
+- Analytics charts + CSV exports
+- Subscription billing tiers, QR codes, bulk import, recurring bookings
+- Mobile responsive, Ubuntu deployment script, full Spancle branding
 
-## Key Database Collections
-users, tenants, venues, courts, bookings, customers, payment_transactions, pricing_rules, password_reset_tokens, login_attempts
-
-## 3rd Party Integrations
-- Stripe, Razorpay, PayPal, Skrill (payments - require user API keys)
-- Resend (email notifications - requires user API key)
+## Code Quality (Apr 18, 2026)
+- Hardcoded secrets moved to env vars in test files
+- Empty catch blocks replaced with proper error handling (state resets)
+- AuthContext value prop memoized with useMemo
+- Motion animation objects extracted to module-level constants (Landing, PublicBooking)
+- Dashboard split further: VenueGrid, BookingPanel extracted
+- PaymentGatewaySelector handler map replaces if-else chain
+- Python type hints added to server.py lifecycle functions
+- All linting passes (ESLint + Ruff)
 
 ## Backlog
-- P1: Mobile App functionality (deferred by user until maturity)
-- P2: Super admin global view for courts/pricing/customers (currently filtered by tenant_id)
-- P2: Migrate deprecated @app.on_event to FastAPI lifespan context manager
+- P2: Super admin global view for courts/pricing/customers
+- P2: Backend subdomain format validation (reject reserved words)
+- P2: FastAPI lifespan migration (deprecated @app.on_event)
+- P3: Mobile App (deferred until maturity)

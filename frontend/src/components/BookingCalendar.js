@@ -37,7 +37,7 @@ const BookingCalendar = ({ courtId, courtName }) => {
       );
       setBookings(data);
     } catch (err) {
-      // silently ignore
+      setBookings([]);
     }
   }, [courtId, selectedDate]);
 

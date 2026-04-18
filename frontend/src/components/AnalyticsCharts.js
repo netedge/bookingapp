@@ -20,7 +20,8 @@ const AnalyticsCharts = () => {
       setRevenueTrend(trendRes.data);
       setCourtOccupancy(occupancyRes.data);
     } catch (error) {
-      // silently ignore
+      setRevenueTrend({ dates: [], revenue: [], bookings: [] });
+      setCourtOccupancy([]);
     } finally {
       setLoading(false);
     }

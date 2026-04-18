@@ -6,6 +6,9 @@ import { motion } from 'framer-motion';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
+const fadeUp = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 } };
+const fadeDown = { initial: { opacity: 0, y: -20 }, animate: { opacity: 1, y: 0 } };
+
 const PublicBooking = () => {
   const { subdomain, venueId } = useParams();
   const [tenant, setTenant] = useState(null);
@@ -45,7 +48,7 @@ const PublicBooking = () => {
       const { data } = await axios.get(`${API}/public/bookings?court_id=${courtId}&date=${selectedDate}`);
       setBookings(data);
     } catch (err) {
-      // silently ignore fetch error
+      setBookings([]);
     }
   }, [selectedCourt, selectedDate]);
 
@@ -58,7 +61,7 @@ const PublicBooking = () => {
         setSelectedCourt(data.courts[0]);
       }
     } catch (err) {
-      // silently ignore load error
+      setError('Failed to load venue details.');
     }
   }, []);
 
@@ -228,8 +231,8 @@ const PublicBooking = () => {
 
         {bookingSuccess && (
           <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={fadeDown.initial}
+            animate={fadeDown.animate}
             className="mb-6 p-6 bg-emerald-50 border border-emerald-200 rounded-2xl"
             data-testid="success-message"
           >
@@ -316,8 +319,8 @@ const PublicBooking = () => {
             {/* Booking Form */}
             {selectedSlot && (
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
+                initial={fadeUp.initial}
+                animate={fadeUp.animate}
                 className="bg-white border border-stone-200 rounded-2xl shadow-sm p-8"
               >
                 <h2 className="text-lg font-medium text-indigo-950 mb-6">Complete Your Booking</h2>

@@ -23,7 +23,7 @@ const CreateVenueModal = ({ isOpen, onClose, onSuccess }) => {
       const { data } = await axios.get(`${API}/tenants`, { withCredentials: true });
       setTenants(data);
     } catch (err) {
-      // silently ignore
+      setTenants([]);
     }
   }, []);
 

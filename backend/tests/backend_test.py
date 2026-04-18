@@ -24,8 +24,8 @@ DB_NAME = os.environ.get('DB_NAME', 'spancle_db').strip().strip('"')
 mongo_client = MongoClient(MONGO_URL)
 db = mongo_client[DB_NAME]
 
-ADMIN_EMAIL = "admin@spancle.com"
-ADMIN_PASSWORD = "admin123"
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@spancle.com")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 
 
 # -------------------- Fixtures --------------------

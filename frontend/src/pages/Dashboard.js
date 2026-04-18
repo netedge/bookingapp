@@ -5,11 +5,12 @@ import axios from 'axios';
 import { Plus, UploadSimple } from '@phosphor-icons/react';
 import CreateTenantModal from '../components/CreateTenantModal';
 import CreateVenueModal from '../components/CreateVenueModal';
-import BookingCalendar from '../components/BookingCalendar';
 import CourtManagement from '../components/CourtManagement';
 import SidebarNav from '../components/SidebarNav';
 import DashboardOverview from '../components/DashboardOverview';
 import TenantManagement from '../components/TenantManagement';
+import VenueGrid from '../components/VenueGrid';
+import BookingPanel from '../components/BookingPanel';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -57,11 +58,11 @@ const Dashboard = () => {
           const tenantRes = await axios.get(`${API}/tenants/${user.tenant_id}`, { withCredentials: true });
           setTenantInfo(tenantRes.data);
         } catch (e) {
-          // silently ignore
+          setTenantInfo(null);
         }
       }
     } catch (error) {
-      // silently ignore
+      setStats({ total_bookings: 0, total_venues: 0, total_customers: 0, total_revenue: 0 });
     } finally {
       setLoading(false);
     }
@@ -103,31 +104,8 @@ const Dashboard = () => {
           </button>
         </div>
       </div>
-
       {showBulkImport && <BulkImportSection />}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {venues.map((venue) => (
-          <div
-            key={venue.id || venue.name}
-            className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-all"
-            data-testid={`venue-card-${venue.id}`}
-          >
-            <div className="h-48 bg-stone-200 overflow-hidden">
-              <img
-                src={venue.image_url || 'https://images.unsplash.com/photo-1765124540460-b884e248ac2b'}
-                alt={venue.name}
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <div className="p-6">
-              <h3 className="text-lg font-medium text-indigo-950 mb-2">{venue.name}</h3>
-              <p className="text-sm text-stone-600 mb-2">{venue.description}</p>
-              <p className="text-xs text-stone-500">{venue.address}</p>
-            </div>
-          </div>
-        ))}
-      </div>
+      <VenueGrid venues={venues} />
     </div>
   );
 
@@ -159,36 +137,12 @@ const Dashboard = () => {
   const renderBookings = () => (
     <div>
       <h2 className="text-2xl font-heading font-semibold text-indigo-950 mb-6">Bookings</h2>
-      {courts.length > 0 ? (
-        <div>
-          <div className="mb-6">
-            <select
-              value={selectedCourt?.id || ''}
-              onChange={(e) => {
-                const c = courts.find(c => c.id === e.target.value);
-                setSelectedCourt(c);
-              }}
-              className="px-4 py-3 bg-white border border-stone-200 rounded-xl text-indigo-950 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-              data-testid="court-select-for-bookings"
-            >
-              <option value="">Select a court</option>
-              {courts.map((court) => (
-                <option key={court.id || court.name} value={court.id}>{court.name}</option>
-              ))}
-            </select>
-          </div>
-          {selectedCourt && (
-            <BookingCalendar courtId={selectedCourt.id} courtName={selectedCourt.name} />
-          )}
-        </div>
-      ) : (
-        <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-12 text-center">
-          <p className="text-stone-500 mb-4">No courts available. Create a venue and add courts to start accepting bookings.</p>
-          <button onClick={() => setActiveTab('venues')} className="px-6 py-3 text-sm font-medium text-white bg-emerald-700 rounded-xl hover:bg-emerald-800" data-testid="go-to-venues">
-            Go to Venues
-          </button>
-        </div>
-      )}
+      <BookingPanel
+        courts={courts}
+        selectedCourt={selectedCourt}
+        setSelectedCourt={setSelectedCourt}
+        setActiveTab={setActiveTab}
+      />
     </div>
   );
 

@@ -117,15 +117,8 @@ const PaymentGatewaySelector = ({ bookingId, amount, onSuccess }) => {
   };
 
   const handlePayment = () => {
-    if (selectedGateway === 'stripe') {
-      handleStripePayment();
-    } else if (selectedGateway === 'razorpay') {
-      handleRazorpayPayment();
-    } else if (selectedGateway === 'paypal') {
-      handlePayPalPayment();
-    } else if (selectedGateway === 'skrill') {
-      handleSkrillPayment();
-    }
+    const handlers = { stripe: handleStripePayment, razorpay: handleRazorpayPayment, paypal: handlePayPalPayment, skrill: handleSkrillPayment };
+    handlers[selectedGateway]?.();
   };
 
   const gateways = [

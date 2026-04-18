@@ -468,20 +468,23 @@ async def verify_credentials(email: str, password: str, identifier: str) -> dict
     """Verify user credentials and handle brute force protection. Returns user dict or raises HTTPException."""
     attempt_record = await db.login_attempts.find_one({"identifier": identifier})
     if attempt_record:
-        if attempt_record.get("locked_until") and attempt_record["locked_until"] > datetime.now(timezone.utc):
-            raise HTTPException(status_code=429, detail="Too many failed attempts. Try again later.")
+        locked_until = attempt_record.get("locked_until")
+        if locked_until:
+            # Ensure timezone-aware comparison
+            if locked_until.tzinfo is None:
+                locked_until = locked_until.replace(tzinfo=timezone.utc)
+            if locked_until > datetime.now(timezone.utc):
+                raise HTTPException(status_code=429, detail="Too many failed attempts. Try again later.")
     
     user = await db.users.find_one({"email": email})
     if not user or not verify_password(password, user["password_hash"]):
+        current_attempts = (attempt_record.get("attempts", 0) if attempt_record else 0) + 1
+        update_fields: Dict[str, Any] = {"last_attempt": datetime.now(timezone.utc)}
+        if current_attempts >= 5:
+            update_fields["locked_until"] = datetime.now(timezone.utc) + timedelta(minutes=15)
         await db.login_attempts.update_one(
             {"identifier": identifier},
-            {
-                "$inc": {"attempts": 1},
-                "$set": {
-                    "last_attempt": datetime.now(timezone.utc),
-                    "locked_until": datetime.now(timezone.utc) + timedelta(minutes=15)
-                }
-            },
+            {"$inc": {"attempts": 1}, "$set": update_fields},
             upsert=True
         )
         raise HTTPException(status_code=401, detail="Invalid credentials")

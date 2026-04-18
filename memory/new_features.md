@@ -168,7 +168,7 @@ POST /api/bulk-import/venues
 
 **Backend (.env):**
 ```
-APP_DOMAIN="emergent.host"  # Used for QR code generation
+APP_DOMAIN="spancle.com"  # Used for QR code generation
 ```
 
 ---

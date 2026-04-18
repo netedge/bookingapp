@@ -358,19 +358,6 @@ async def seed_admin():
             {"$set": {"password_hash": hash_password(admin_password)}}
         )
         logger.info("Super admin password updated")
-    
-    # Write test credentials
-    os.makedirs("/app/memory", exist_ok=True)
-    with open("/app/memory/test_credentials.md", "w") as f:
-        f.write("# Test Credentials\n\n")
-        f.write("## Super Admin\n")
-        f.write(f"- Email: {admin_email}\n")
-        f.write(f"- Password: {admin_password}\n")
-        f.write(f"- Role: super_admin\n\n")
-        f.write("## Endpoints\n")
-        f.write("- Login: POST /api/auth/login\n")
-        f.write("- Register: POST /api/auth/register\n")
-        f.write("- Me: GET /api/auth/me\n")
 
 # ============ AUTH ENDPOINTS ============
 

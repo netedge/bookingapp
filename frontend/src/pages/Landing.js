@@ -8,30 +8,35 @@ const Landing = () => {
 
   const features = [
     {
+      id: 'smart-booking',
       icon: <CalendarDots className="w-8 h-8 text-emerald-700" weight="duotone" />,
       title: 'Smart Booking Calendar',
       description: 'Intelligent slot management with real-time availability and conflict prevention.',
       color: 'bg-emerald-50 border-emerald-200'
     },
     {
+      id: 'multi-payments',
       icon: <CreditCard className="w-8 h-8 text-sky-700" weight="duotone" />,
       title: 'Multi-Gateway Payments',
       description: 'Accept payments through Stripe, Razorpay, PayPal, and more payment providers.',
       color: 'bg-sky-50 border-sky-200'
     },
     {
+      id: 'qr-booking',
       icon: <QrCode className="w-8 h-8 text-orange-600" weight="duotone" />,
       title: 'QR Code Booking',
       description: 'Generate QR codes for instant venue access and contactless bookings.',
       color: 'bg-orange-50 border-orange-200'
     },
     {
+      id: 'analytics',
       icon: <ChartLine className="w-8 h-8 text-indigo-800" weight="duotone" />,
       title: 'Advanced Analytics',
       description: 'Track revenue, occupancy rates, peak hours, and customer insights.',
       color: 'bg-indigo-50 border-indigo-200'
     },
     {
+      id: 'dynamic-pricing',
       icon: <TrendUp className="w-8 h-8 text-emerald-700" weight="duotone" />,
       title: 'Dynamic Pricing',
       description: 'Peak hour pricing, weekend rates, and seasonal pricing automation.',
@@ -46,7 +51,7 @@ const Landing = () => {
         <div className="max-w-7xl mx-auto px-6 sm:px-12 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-emerald flex items-center justify-center">
-              <span className="text-white font-bold text-xl">K</span>
+              <span className="text-white font-bold text-xl">S</span>
             </div>
             <span className="text-2xl font-heading font-semibold text-indigo-950">Spancle</span>
           </div>
@@ -134,7 +139,7 @@ const Landing = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {features.map((feature, index) => (
               <motion.div
-                key={index}
+                key={feature.id}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: index * 0.1 }}

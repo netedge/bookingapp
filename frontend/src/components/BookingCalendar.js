@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { CalendarBlank, Clock, CurrencyDollar, CheckCircle } from '@phosphor-icons/react';
 import axios from 'axios';
 
@@ -11,33 +11,25 @@ const BookingCalendar = ({ courtId, courtName }) => {
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [loading, setLoading] = useState(false);
-
   const [bookingForm, setBookingForm] = useState({
     customer_name: '',
     customer_email: '',
     customer_phone: ''
   });
 
-  useEffect(() => {
-    if (courtId) {
-      fetchBookings();
-      generateTimeSlots();
-    }
-  }, [courtId, selectedDate]);
-
-  const generateTimeSlots = () => {
+  const generateTimeSlots = useCallback(() => {
     const slots = [];
     for (let hour = 6; hour < 22; hour++) {
       slots.push({
         start: `${hour.toString().padStart(2, '0')}:00`,
         end: `${(hour + 1).toString().padStart(2, '0')}:00`,
-        price: hour >= 17 ? 50 : 30 // Peak hours after 5 PM
+        price: hour >= 17 ? 50 : 30
       });
     }
     setTimeSlots(slots);
-  };
+  }, []);
 
-  const fetchBookings = async () => {
+  const fetchBookings = useCallback(async () => {
     try {
       const { data } = await axios.get(
         `${API}/bookings?court_id=${courtId}&date=${selectedDate}`,
@@ -47,7 +39,14 @@ const BookingCalendar = ({ courtId, courtName }) => {
     } catch (err) {
       console.error('Failed to fetch bookings:', err);
     }
-  };
+  }, [courtId, selectedDate]);
+
+  useEffect(() => {
+    if (courtId) {
+      fetchBookings();
+      generateTimeSlots();
+    }
+  }, [courtId, selectedDate, fetchBookings, generateTimeSlots]);
 
   const isSlotBooked = (startTime) => {
     return bookings.some(
@@ -132,13 +131,13 @@ const BookingCalendar = ({ courtId, courtName }) => {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-        {timeSlots.map((slot, index) => {
+        {timeSlots.map((slot) => {
           const isBooked = isSlotBooked(slot.start);
           const isPeak = slot.price > 30;
 
           return (
             <button
-              key={index}
+              key={`${selectedDate}-${slot.start}`}
               onClick={() => handleSlotClick(slot)}
               disabled={isBooked}
               className={`p-3 rounded-xl border-2 transition-all text-left ${
@@ -216,10 +215,7 @@ const BookingCalendar = ({ courtId, courtName }) => {
             <div className="flex items-center space-x-4">
               <button
                 type="button"
-                onClick={() => {
-                  setShowBookingForm(false);
-                  setSelectedSlot(null);
-                }}
+                onClick={() => { setShowBookingForm(false); setSelectedSlot(null); }}
                 className="flex-1 px-6 py-3 text-sm font-medium bg-white border border-stone-200 text-indigo-950 rounded-xl hover:bg-stone-50"
                 data-testid="cancel-booking-button"
               >

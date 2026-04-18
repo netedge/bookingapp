@@ -65,4 +65,12 @@ Auth, Tenants, Venues, Courts, Bookings, Customers, Payments (Stripe/Razorpay/Pa
 
 ## Backlog
 - P1: Mobile App functionality (deferred)
-- P2: Backend refactoring (server.py is monolithic ~1500+ lines)
+- P2: Backend refactoring (server.py → route modules)
+- P2: Frontend component splitting (Dashboard.js → smaller sub-components)
+
+## Code Quality (Completed Apr 2026)
+- All React useEffect hooks have proper dependency arrays via useCallback
+- Array index keys replaced with stable unique IDs throughout
+- use-toast hook dependency fix
+- Python linting clean
+- All linting passes (ESLint + Ruff)

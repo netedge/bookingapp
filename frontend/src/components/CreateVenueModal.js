@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { X } from '@phosphor-icons/react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -18,20 +18,20 @@ const CreateVenueModal = ({ isOpen, onClose, onSuccess }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (isOpen && user?.role === 'super_admin') {
-      fetchTenants();
-    }
-  }, [isOpen, user]);
-
-  const fetchTenants = async () => {
+  const fetchTenants = useCallback(async () => {
     try {
       const { data } = await axios.get(`${API}/tenants`, { withCredentials: true });
       setTenants(data);
     } catch (err) {
       console.error('Failed to fetch tenants:', err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (isOpen && user?.role === 'super_admin') {
+      fetchTenants();
+    }
+  }, [isOpen, user, fetchTenants]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -47,13 +47,7 @@ const CreateVenueModal = ({ isOpen, onClose, onSuccess }) => {
       await axios.post(`${API}/venues`, payload, { withCredentials: true });
       onSuccess();
       onClose();
-      setFormData({
-        name: '',
-        description: '',
-        address: '',
-        image_url: '',
-        tenant_id: ''
-      });
+      setFormData({ name: '', description: '', address: '', image_url: '', tenant_id: '' });
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to create venue');
     } finally {
@@ -68,11 +62,7 @@ const CreateVenueModal = ({ isOpen, onClose, onSuccess }) => {
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
         <div className="p-6 border-b border-stone-200 flex items-center justify-between sticky top-0 bg-white">
           <h2 className="text-2xl font-semibold text-indigo-950">Create New Venue</h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-stone-100 rounded-lg transition-colors"
-            data-testid="close-modal-button"
-          >
+          <button onClick={onClose} className="p-2 hover:bg-stone-100 rounded-lg transition-colors" data-testid="close-modal-button">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -156,20 +146,10 @@ const CreateVenueModal = ({ isOpen, onClose, onSuccess }) => {
           </div>
 
           <div className="flex items-center justify-end space-x-4 mt-6">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-6 py-3 text-sm font-medium transition-all bg-white border border-stone-200 text-indigo-950 rounded-xl hover:bg-stone-50"
-              data-testid="cancel-button"
-            >
+            <button type="button" onClick={onClose} className="px-6 py-3 text-sm font-medium transition-all bg-white border border-stone-200 text-indigo-950 rounded-xl hover:bg-stone-50" data-testid="cancel-button">
               Cancel
             </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-6 py-3 text-sm font-medium text-white transition-all bg-emerald-700 rounded-xl hover:bg-emerald-800 disabled:opacity-50"
-              data-testid="submit-button"
-            >
+            <button type="submit" disabled={loading} className="px-6 py-3 text-sm font-medium text-white transition-all bg-emerald-700 rounded-xl hover:bg-emerald-800 disabled:opacity-50" data-testid="submit-button">
               {loading ? 'Creating...' : 'Create Venue'}
             </button>
           </div>

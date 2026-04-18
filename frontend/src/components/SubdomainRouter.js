@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
@@ -6,20 +6,12 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const SubdomainRouter = ({ children }) => {
   const [checking, setChecking] = useState(true);
-  const [tenantData, setTenantData] = useState(null);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    checkSubdomain();
-  }, []);
-
-  const checkSubdomain = async () => {
+  const checkSubdomain = useCallback(async () => {
     const hostname = window.location.hostname;
-    // Check if we're on a subdomain (e.g., elite-sports.spancle.com)
     const parts = hostname.split('.');
     
-    // Need at least 3 parts for subdomain: sub.domain.tld
-    // Skip www, localhost, and IP addresses
     if (
       parts.length >= 3 &&
       parts[0] !== 'www' &&
@@ -30,21 +22,22 @@ const SubdomainRouter = ({ children }) => {
       const subdomain = parts[0];
       try {
         const { data } = await axios.get(`${API}/public/tenant/${subdomain}`);
-        setTenantData(data);
-        // If tenant has venues, redirect to the first venue booking page
         if (data.venues && data.venues.length > 0) {
           navigate(`/book/${subdomain}/${data.venues[0].id}`, { replace: true });
         } else {
           navigate(`/book/${subdomain}`, { replace: true });
         }
       } catch (err) {
-        // Not a valid tenant subdomain, continue to normal routing
         setChecking(false);
       }
     } else {
       setChecking(false);
     }
-  };
+  }, [navigate]);
+
+  useEffect(() => {
+    checkSubdomain();
+  }, [checkSubdomain]);
 
   if (checking) {
     return (

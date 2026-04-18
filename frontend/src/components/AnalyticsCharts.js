@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { TrendUp, ChartBar } from '@phosphor-icons/react';
 import axios from 'axios';
 
@@ -10,11 +10,7 @@ const AnalyticsCharts = () => {
   const [loading, setLoading] = useState(true);
   const [days, setDays] = useState(30);
 
-  useEffect(() => {
-    fetchAnalytics();
-  }, [days]);
-
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = useCallback(async () => {
     try {
       const [trendRes, occupancyRes] = await Promise.all([
         axios.get(`${API}/analytics/revenue-trend?days=${days}`, { withCredentials: true }),
@@ -28,7 +24,11 @@ const AnalyticsCharts = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [days]);
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, [fetchAnalytics]);
 
   if (loading) {
     return (
@@ -39,7 +39,6 @@ const AnalyticsCharts = () => {
   }
 
   const maxRevenue = Math.max(...revenueTrend.revenue, 1);
-  const maxBookings = Math.max(...revenueTrend.bookings, 1);
 
   return (
     <div className="space-y-6">
@@ -70,7 +69,7 @@ const AnalyticsCharts = () => {
           <div className="space-y-4">
             <div className="flex items-end justify-between space-x-2 h-64">
               {revenueTrend.revenue.map((revenue, idx) => (
-                <div key={idx} className="flex-1 flex flex-col items-center justify-end space-y-2">
+                <div key={revenueTrend.dates[idx] || `rev-${idx}`} className="flex-1 flex flex-col items-center justify-end space-y-2">
                   <div className="w-full bg-gradient-to-t from-emerald-600 to-emerald-400 rounded-t-lg transition-all hover:opacity-80"
                     style={{ height: `${(revenue / maxRevenue) * 100}%`, minHeight: revenue > 0 ? '4px' : '0' }}
                     title={`$${revenue.toFixed(2)}`}
@@ -115,8 +114,8 @@ const AnalyticsCharts = () => {
           </div>
         ) : (
           <div className="space-y-4">
-            {courtOccupancy.map((court, idx) => (
-              <div key={idx} className="space-y-2">
+            {courtOccupancy.map((court) => (
+              <div key={court.court_id || court.court_name} className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-indigo-950">{court.court_name}</p>

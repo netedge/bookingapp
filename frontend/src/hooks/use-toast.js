@@ -1,5 +1,4 @@
 "use client";
-// Inspired by react-hot-toast library
 import * as React from "react"
 
 const TOAST_LIMIT = 1
@@ -55,8 +54,6 @@ export const reducer = (state, action) => {
     case "DISMISS_TOAST": {
       const { toastId } = action
 
-      // ! Side effects ! - This could be extracted into a dismissToast() action,
-      // but I'll keep it here for simplicity
       if (toastId) {
         addToRemoveQueue(toastId)
       } else {
@@ -138,12 +135,12 @@ function useToast() {
   React.useEffect(() => {
     listeners.push(setState)
     return () => {
-      const index = listeners.indexOf(setState)
-      if (index > -1) {
-        listeners.splice(index, 1)
+      const idx = listeners.indexOf(setState)
+      if (idx > -1) {
+        listeners.splice(idx, 1)
       }
     };
-  }, [state])
+  }, [])
 
   return {
     ...state,

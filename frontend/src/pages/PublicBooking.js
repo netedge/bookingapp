@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { CalendarBlank, Clock, MapPin, CurrencyDollar, CheckCircle, Envelope, Phone, User, Buildings } from '@phosphor-icons/react';
 import axios from 'axios';
@@ -27,22 +27,42 @@ const PublicBooking = () => {
     phone: ''
   });
 
-  useEffect(() => {
-    if (subdomain) {
-      fetchTenantData();
-    } else if (venueId) {
-      fetchVenueDirectly();
+  const generateTimeSlots = useCallback(() => {
+    const slots = [];
+    for (let hour = 6; hour < 22; hour++) {
+      slots.push({
+        start: `${hour.toString().padStart(2, '0')}:00`,
+        end: `${(hour + 1).toString().padStart(2, '0')}:00`,
+        price: hour >= 17 ? 50 : 30
+      });
     }
-  }, [subdomain, venueId]);
+    setTimeSlots(slots);
+  }, []);
 
-  useEffect(() => {
-    if (selectedCourt) {
-      generateTimeSlots();
-      fetchBookings();
+  const fetchBookings = useCallback(async () => {
+    try {
+      const courtId = selectedCourt?.id || selectedCourt?._id;
+      const { data } = await axios.get(`${API}/public/bookings?court_id=${courtId}&date=${selectedDate}`);
+      setBookings(data);
+    } catch (err) {
+      console.error('Failed to fetch bookings:', err);
     }
   }, [selectedCourt, selectedDate]);
 
-  const fetchTenantData = async () => {
+  const loadVenueDetails = useCallback(async (vId) => {
+    try {
+      const { data } = await axios.get(`${API}/public/venue/${vId}`);
+      setVenue(data);
+      setCourts(data.courts || []);
+      if (data.courts?.length > 0) {
+        setSelectedCourt(data.courts[0]);
+      }
+    } catch (err) {
+      console.error('Failed to load venue details:', err);
+    }
+  }, []);
+
+  const fetchTenantData = useCallback(async () => {
     try {
       const { data } = await axios.get(`${API}/public/tenant/${subdomain}`);
       setTenant(data);
@@ -63,9 +83,9 @@ const PublicBooking = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [subdomain, venueId, loadVenueDetails]);
 
-  const fetchVenueDirectly = async () => {
+  const fetchVenueDirectly = useCallback(async () => {
     try {
       const { data } = await axios.get(`${API}/public/venue/${venueId}`);
       setVenue(data);
@@ -78,42 +98,22 @@ const PublicBooking = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [venueId]);
 
-  const loadVenueDetails = async (vId) => {
-    try {
-      const { data } = await axios.get(`${API}/public/venue/${vId}`);
-      setVenue(data);
-      setCourts(data.courts || []);
-      if (data.courts?.length > 0) {
-        setSelectedCourt(data.courts[0]);
-      }
-    } catch (err) {
-      console.error('Failed to load venue details:', err);
+  useEffect(() => {
+    if (subdomain) {
+      fetchTenantData();
+    } else if (venueId) {
+      fetchVenueDirectly();
     }
-  };
+  }, [subdomain, venueId, fetchTenantData, fetchVenueDirectly]);
 
-  const generateTimeSlots = () => {
-    const slots = [];
-    for (let hour = 6; hour < 22; hour++) {
-      slots.push({
-        start: `${hour.toString().padStart(2, '0')}:00`,
-        end: `${(hour + 1).toString().padStart(2, '0')}:00`,
-        price: hour >= 17 ? 50 : 30
-      });
+  useEffect(() => {
+    if (selectedCourt) {
+      generateTimeSlots();
+      fetchBookings();
     }
-    setTimeSlots(slots);
-  };
-
-  const fetchBookings = async () => {
-    try {
-      const courtId = selectedCourt?.id || selectedCourt?._id;
-      const { data } = await axios.get(`${API}/public/bookings?court_id=${courtId}&date=${selectedDate}`);
-      setBookings(data);
-    } catch (err) {
-      console.error('Failed to fetch bookings:', err);
-    }
-  };
+  }, [selectedCourt, selectedDate, generateTimeSlots, fetchBookings]);
 
   const isSlotBooked = (startTime) => {
     return bookings.some(

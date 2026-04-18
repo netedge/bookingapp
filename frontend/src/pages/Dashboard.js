@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
@@ -50,15 +50,7 @@ const Dashboard = () => {
   const [copiedUrl, setCopiedUrl] = useState(null);
   const [tenantInfo, setTenantInfo] = useState(null);
 
-  useEffect(() => {
-    if (!user) {
-      navigate('/login');
-    } else {
-      fetchDashboardData();
-    }
-  }, [user, navigate]);
-
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     try {
       const [analyticsRes, venuesRes, courtsRes] = await Promise.all([
         axios.get(`${API}/analytics/dashboard`, { withCredentials: true }),
@@ -75,7 +67,6 @@ const Dashboard = () => {
         setTenants(tenantsRes.data);
       }
 
-      // Fetch tenant info for booking URLs
       if (user?.tenant_id) {
         try {
           const tenantRes = await axios.get(`${API}/tenants/${user.tenant_id}`, { withCredentials: true });
@@ -89,7 +80,15 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) {
+      navigate('/login');
+    } else {
+      fetchDashboardData();
+    }
+  }, [user, navigate, fetchDashboardData]);
 
   const handleLogout = async () => {
     await logout();
@@ -355,7 +354,7 @@ const Dashboard = () => {
               const subdStr = tenantInfo?.subdomain || 'default';
               const urls = getBookingUrl(venue, subdStr);
               return (
-                <div key={idx} className="p-4 bg-stone-50 border border-stone-200 rounded-xl" data-testid={`booking-link-${idx}`}>
+                <div key={venue.id || venue.name} className="p-4 bg-stone-50 border border-stone-200 rounded-xl" data-testid={`booking-link-${venue.id}`}>
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="text-sm font-medium text-indigo-950">{venue.name}</h3>
                   </div>
@@ -446,7 +445,7 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {venues.map((venue, index) => (
             <div
-              key={index}
+              key={venue.id || venue.name}
               className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden hover-lift"
               data-testid={`venue-card-${index}`}
             >
@@ -515,8 +514,8 @@ const Dashboard = () => {
                     data-testid="venue-select-courts"
                   >
                     <option value="">Choose a venue</option>
-                    {venues.map((venue, idx) => (
-                      <option key={idx} value={venue.id}>
+                    {venues.map((venue) => (
+                      <option key={venue.id} value={venue.id}>
                         {venue.name}
                       </option>
                     ))}
@@ -561,8 +560,8 @@ const Dashboard = () => {
                     data-testid="court-select"
                   >
                     <option value="">Choose a court</option>
-                    {courts.map((court, idx) => (
-                      <option key={idx} value={court.id || idx}>
+                    {courts.map((court) => (
+                      <option key={court.id || court.name} value={court.id}>
                         {court.name} - {court.sport_type}
                       </option>
                     ))}
@@ -603,8 +602,8 @@ const Dashboard = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {tenants.map((tenant, index) => (
-                    <tr key={index} className="border-b border-stone-200 hover:bg-stone-50">
+                  {tenants.map((tenant) => (
+                    <tr key={tenant.id || tenant.subdomain} className="border-b border-stone-200 hover:bg-stone-50">
                       <td className="px-6 py-4 text-sm text-stone-600">{tenant.business_name}</td>
                       <td className="px-6 py-4 text-sm">
                         <a 

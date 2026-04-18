@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Pencil, Trash, CheckCircle } from '@phosphor-icons/react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Plus, CheckCircle } from '@phosphor-icons/react';
 import axios from 'axios';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -15,13 +15,7 @@ const CourtManagement = ({ venueId, venueName }) => {
     indoor: true
   });
 
-  useEffect(() => {
-    if (venueId) {
-      fetchCourts();
-    }
-  }, [venueId]);
-
-  const fetchCourts = async () => {
+  const fetchCourts = useCallback(async () => {
     try {
       const { data } = await axios.get(`${API}/courts?venue_id=${venueId}`, { withCredentials: true });
       setCourts(data);
@@ -30,7 +24,13 @@ const CourtManagement = ({ venueId, venueName }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [venueId]);
+
+  useEffect(() => {
+    if (venueId) {
+      fetchCourts();
+    }
+  }, [venueId, fetchCourts]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -140,11 +140,11 @@ const CourtManagement = ({ venueId, venueName }) => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {courts.map((court, idx) => (
+          {courts.map((court) => (
             <div
-              key={idx}
+              key={court.id || court._id}
               className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl"
-              data-testid={`court-card-${idx}`}
+              data-testid={`court-card-${court.id || court._id}`}
             >
               <div className="flex items-center justify-between mb-2">
                 <h4 className="text-lg font-medium text-indigo-950">{court.name}</h4>

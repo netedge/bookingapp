@@ -18,7 +18,7 @@ Create a full-fledged multi-tenant SaaS application for venue booking ("Spancle"
 - Email notifications via Resend
 - Analytics dashboard with charts
 - CSV export for bookings and analytics
-- Subscription billing tiers (Free, Pro, Enterprise)
+- Subscription billing tiers (Basic, Pro, Enterprise)
 - Public customer booking pages
 - QR code generation for venues
 - Bulk import for venues
@@ -29,7 +29,29 @@ Create a full-fledged multi-tenant SaaS application for venue booking ("Spancle"
 - Frontend: React.js (CRA), Tailwind CSS, Phosphor Icons, Framer Motion
 - Backend: FastAPI, Python 3.11+
 - Database: MongoDB (Motor async driver)
-- Architecture: Monolithic MVP, multi-tenant via tenant_id
+- Architecture: Modular backend (routes/, shared modules), multi-tenant via tenant_id
+
+## Backend Architecture (Refactored Apr 18, 2026)
+```
+/app/backend/
+├── server.py          (92 lines - App creation, CORS, startup, router imports)
+├── database.py        (MongoDB connection)
+├── config.py          (Environment variables, payment client init)
+├── auth.py            (Password hashing, JWT, get_current_user)
+├── models.py          (All Pydantic request models)
+├── email_service.py   (Email HTML templates + send functions)
+├── routes/
+│   ├── auth.py        (register, login, logout, me, forgot/reset password)
+│   ├── tenants.py     (Tenant CRUD + subscription plans)
+│   ├── venues.py      (Venue CRUD + bulk import)
+│   ├── courts.py      (Court CRUD)
+│   ├── bookings.py    (Booking CRUD + recurring + cancellation)
+│   ├── customers.py   (Customer CRUD)
+│   ├── payments.py    (Stripe, Razorpay, PayPal, Skrill + webhooks)
+│   ├── analytics.py   (Dashboard + charts + CSV exports)
+│   ├── public.py      (Public endpoints - no auth)
+│   └── qr.py          (QR code generation + pricing rules)
+```
 
 ## What's Been Implemented (All Complete)
 - Landing page with hero, features, pricing sections
@@ -41,8 +63,7 @@ Create a full-fledged multi-tenant SaaS application for venue booking ("Spancle"
 - Court management with venue selector
 - Booking calendar with time slots
 - Public booking pages for customers (path-based and subdomain-based)
-- Tenant "My Public Booking Links" section with copy-to-clipboard
-- Subdomain routing (e.g., elite-sports.spancle.com auto-redirects to booking page)
+- Subdomain routing (e.g., elite-sports.spancle.com)
 - Multi-gateway payment integrations (Stripe, Razorpay, PayPal, Skrill)
 - Email notifications via Resend
 - Analytics charts (Revenue Trend, Court Occupancy)
@@ -51,37 +72,19 @@ Create a full-fledged multi-tenant SaaS application for venue booking ("Spancle"
 - QR code generation
 - Bulk venue import
 - Recurring bookings
-- Database structure documentation
 - Mobile responsive design
-- Public API endpoints (no auth required for customer booking)
-- Ubuntu 24.04 installation script
-- Full rebranding from Emergent to Spancle
+- Ubuntu 24.04 deployment script
+- Full rebranding to Spancle (no Emergent references)
+- Backend modular refactoring (server.py split into 17 clean files)
 
 ## Key Database Collections
-- users, tenants, venues, courts, bookings, customers, payment_transactions, pricing_rules, password_reset_tokens, login_attempts
-
-## API Endpoints
-Auth: register, login, logout, me, forgot-password, reset-password
-Tenants: CRUD + subscription management
-Venues: CRUD + bulk import
-Courts: CRUD
-Bookings: CRUD + recurring + cancellation
-Customers: CRUD
-Payments: Stripe, Razorpay, PayPal, Skrill
-Analytics: dashboard, revenue-trend, court-occupancy
-Exports: bookings CSV, analytics CSV
-QR Codes, Webhooks (Stripe, Skrill), Public endpoints
+users, tenants, venues, courts, bookings, customers, payment_transactions, pricing_rules, password_reset_tokens, login_attempts
 
 ## 3rd Party Integrations
 - Stripe, Razorpay, PayPal, Skrill (payments - require user API keys)
 - Resend (email notifications - requires user API key)
 
-## Bug Fixes (Apr 18, 2026)
-- Fixed: GET /api/venues, /api/courts, /api/pricing, /api/bookings, /api/customers all now return `id` field (was missing due to MongoDB `{"_id": 0}` projection)
-- Fixed: Brute force protection now locks after 5 failed attempts (was locking after 1)
-- Fixed: Timezone-aware datetime comparison in brute force check (was causing TypeError)
-- Fixed: All user-visible "Emergent" branding replaced with "Spancle"
-
 ## Backlog
-- P1: Mobile App functionality (deferred)
-- P2: Backend refactoring (server.py into route modules)
+- P1: Mobile App functionality (deferred by user until maturity)
+- P2: Super admin global view for courts/pricing/customers (currently filtered by tenant_id)
+- P2: Migrate deprecated @app.on_event to FastAPI lifespan context manager

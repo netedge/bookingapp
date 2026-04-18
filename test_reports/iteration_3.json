@@ -1,0 +1,68 @@
+{
+  "summary": "Tested Spancle backend + frontend for 3 reported fixes (tenant list ID visibility, forgot/reset password flow, branding rename). All targeted user-reported issues are resolved. However, discovered 2 backend bugs in login brute-force code: (1) naive vs aware datetime TypeError causing 500 on login after any failed attempt, (2) lockout triggered after only 1 failed attempt (15 min lock), not 5 as per playbook.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "/api/auth/login",
+        "issue": "TypeError: can't compare offset-naive and offset-aware datetimes in verify_credentials (server.py line 471). MongoDB deserializes stored 'locked_until' as naive datetime, compared with tz-aware datetime.now(timezone.utc). Causes HTTP 500 on any login attempt if a prior failed attempt exists for that IP+email.",
+        "priority": "CRITICAL"
+      },
+      {
+        "endpoint": "/api/auth/login",
+        "issue": "Lockout is applied on the FIRST failed attempt (15-min lock). verify_credentials unconditionally sets locked_until on every $inc of attempts. Playbook requires lockout only after 5 failed attempts. This is effectively a DoS: one wrong password locks the user out immediately.",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "POST /api/auth/login returns 200 with id, email, role fields (admin@spancle.com)",
+    "POST /api/tenants creates tenant with id",
+    "GET /api/tenants returns array with 'id' field (no _id leak); newly created tenant appears",
+    "GET /api/venues returns array with 'id' field (no _id leak)",
+    "GET /api/courts returns array with 'id' field (no _id leak)",
+    "POST /api/auth/forgot-password with valid email returns 200 + success message; token stored in password_reset_tokens collection",
+    "POST /api/auth/forgot-password with non-existent email returns 200 (no email enumeration)",
+    "POST /api/auth/reset-password with valid token succeeds; reusing same token returns 400",
+    "POST /api/auth/reset-password with invalid token returns 400",
+    "Frontend: /login page contains 'Forgot Password?' link",
+    "Frontend: /forgot-password page loads, submits, shows 'Check Your Email' confirmation",
+    "Frontend: /reset-password (no token) shows 'Invalid Link / This password reset link is invalid or has expired'",
+    "Frontend: Dashboard Tenants section lists 'Elite Sports' and newly created 'TEST_Venue Co' (proof IDs are returned properly)",
+    "Frontend: Browser title is 'Spancle | Venue Booking' (not Emergent)",
+    "Frontend: Badge text is 'Powered by Spancle' (not 'Made with Emergent')"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "CRITICAL: Fix datetime tz comparison in verify_credentials (server.py ~line 471). Either strip tz when comparing (attempt_record['locked_until'].replace(tzinfo=timezone.utc)) or store as tz-aware consistently.",
+    "CRITICAL: Change verify_credentials brute-force logic to only set locked_until after attempts >= 5 (per auth playbook). Currently sets locked_until on the FIRST failed attempt, effectively a DoS.",
+    "Minor: emergent-main.js script tag still present in index.html (external Emergent script). If strict de-branding is required, consider removal; otherwise it only powers the 'Powered by Spancle' badge."
+  ],
+  "critical_code_review_comments": [
+    "server.py verify_credentials: naive vs aware datetime comparison — production bug, reproducible.",
+    "server.py verify_credentials: locked_until is set unconditionally on every $inc, turning 1 wrong password into a 15-min lockout; contradicts playbook (5 attempts).",
+    "server.py is ~2k LOC — consider splitting into auth/tenants/venues/payments modules per the 700-line guideline.",
+    "Several endpoints (GET /courts, /pricing, /customers) filter by user.get('tenant_id') with no super_admin override — super_admin cannot list these globally."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py"
+  ],
+  "success_rate": {
+    "backend": "100% (10/10 pytest tests passed for targeted features; separate 2 critical bugs reported outside the targeted scope)",
+    "frontend": "100% (all 14 targeted checks passed)"
+  },
+  "test_credentials": "Super admin: admin@spancle.com / admin123 (verified). Created TEST tenants during test runs (admin emails TEST_testtenant*@test.com / test123).",
+  "seed_data_creation": "Tests create TEST_Venue Co tenants via POST /api/tenants. Not auto-cleaned (subdomains are time-prefixed to avoid collisions).",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend tests live at /app/backend/tests/backend_test.py. The login lockout bug requires clearing db.login_attempts before each test run or using a unique email for invalid-login tests (already handled). If main agent fixes the two critical login bugs, retest by (a) running the pytest suite, (b) deliberately failing 1-4 logins and verifying subsequent correct login still returns 200, (c) failing 5+ times and verifying 429 is returned (not 500). Focus was only on the 3 reported issues; did not regression-test payments/bookings/analytics from iteration 2.",
+  "rca of the issue": "Reported issues RCA: (1) Tenant/Venue/Court list ID issue — fixed by converting Mongo _id → id in get_tenants/get_venues/get_courts handlers. Verified. (2) Forgot-password — new endpoints /auth/forgot-password and /auth/reset-password added, generating token stored in password_reset_tokens with TTL index; email sent via Resend (demo mode logs link). Verified end-to-end. (3) Branding — index.html title and badge updated to 'Spancle' / 'Powered by Spancle'. Verified. Additionally discovered unrelated login lockout bugs documented above."
+}

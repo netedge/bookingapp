@@ -85,8 +85,8 @@ DB_NAME="${input:-$DB_NAME}"
 echo ""
 echo -e "${BLUE}Payment Gateway Keys (press Enter to skip/use demo):${NC}"
 
-read -p "Stripe API Key [sk_test_emergent]: " STRIPE_KEY
-STRIPE_KEY="${STRIPE_KEY:-sk_test_emergent}"
+read -p "Stripe API Key [sk_test_spancle_demo]: " STRIPE_KEY
+STRIPE_KEY="${STRIPE_KEY:-sk_test_spancle_demo}"
 
 read -p "Razorpay Key ID [rzp_test_demo]: " RAZORPAY_KEY_ID
 RAZORPAY_KEY_ID="${RAZORPAY_KEY_ID:-rzp_test_demo}"
@@ -498,7 +498,7 @@ echo -e "    sudo systemctl restart spancle-backend"
 echo -e "    sudo systemctl restart spancle-frontend"
 echo ""
 
-if [ "$STRIPE_KEY" = "sk_test_emergent" ]; then
+if [ "$STRIPE_KEY" = "sk_test_spancle_demo" ]; then
     warn "You are using demo payment keys. Update ${PROJECT_DIR}/backend/.env with real keys for production."
 fi
 

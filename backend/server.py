@@ -23,6 +23,7 @@ import base64
 from paypalcheckoutsdk.core import PayPalHttpClient, SandboxEnvironment, LiveEnvironment
 from paypalcheckoutsdk.orders import OrdersCreateRequest, OrdersCaptureRequest
 from typing import Optional, List, Dict, Any
+import secrets
 import stripe as stripe_lib
 
 # MongoDB connection
@@ -142,6 +143,44 @@ async def send_booking_confirmation_email(booking: dict, customer_email: str, ve
         logger.info(f"Booking confirmation email sent to {customer_email}")
     except Exception as e:
         logger.error(f"Failed to send booking confirmation email: {str(e)}")
+
+def build_password_reset_html(name: str, reset_link: str) -> str:
+    """Build the HTML template for password reset email"""
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: 'Arial', sans-serif; background-color: #f5f5f4; margin: 0; padding: 20px; }}
+            .container {{ max-width: 600px; margin: 0 auto; background-color: white; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
+            .header {{ background: linear-gradient(135deg, #059669 0%, #047857 100%); padding: 40px 20px; text-align: center; }}
+            .header h1 {{ color: white; margin: 0; font-size: 28px; }}
+            .content {{ padding: 40px 30px; }}
+            .btn {{ display: inline-block; padding: 14px 28px; background-color: #059669; color: white; text-decoration: none; border-radius: 12px; font-weight: bold; }}
+            .footer {{ background-color: #f5f5f4; padding: 20px; text-align: center; color: #78716c; font-size: 14px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>Reset Your Password</h1>
+            </div>
+            <div class="content">
+                <p>Hi {name},</p>
+                <p>We received a request to reset your password. Click the button below to set a new password:</p>
+                <p style="text-align: center; margin: 30px 0;">
+                    <a href="{reset_link}" class="btn">Reset Password</a>
+                </p>
+                <p style="color: #78716c; font-size: 14px;">This link expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>
+            </div>
+            <div class="footer">
+                <p>&copy; 2026 Spancle Sports Venue Management</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
 
 async def send_booking_cancellation_email(booking: dict, customer_email: str, venue_name: str):
     """Send booking cancellation email"""
@@ -271,6 +310,13 @@ class RegisterRequest(BaseModel):
     name: str
     role: str = "customer"
     tenant_id: Optional[str] = None
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
 
 class TenantCreate(BaseModel):
     business_name: str
@@ -498,6 +544,74 @@ async def logout(response: Response):
 async def get_me(user: dict = Depends(get_current_user)):
     return user
 
+
+@api_router.post("/auth/forgot-password")
+async def forgot_password(request: ForgotPasswordRequest):
+    email = request.email.lower()
+    user = await db.users.find_one({"email": email})
+
+    # Always return success to prevent email enumeration
+    if not user:
+        return {"message": "If an account with that email exists, a reset link has been sent."}
+
+    token = secrets.token_urlsafe(32)
+    await db.password_reset_tokens.insert_one({
+        "token": token,
+        "user_id": str(user["_id"]),
+        "email": email,
+        "expires_at": datetime.now(timezone.utc) + timedelta(hours=1),
+        "used": False,
+        "created_at": datetime.now(timezone.utc),
+    })
+
+    app_domain = os.environ.get("APP_DOMAIN", "spancle.com")
+    frontend_url = os.environ.get("REACT_APP_FRONTEND_URL", f"https://{app_domain}")
+    reset_link = f"{frontend_url}/reset-password?token={token}"
+
+    if RESEND_API_KEY and RESEND_API_KEY != "re_demo_key":
+        try:
+            html = build_password_reset_html(user.get("name", "there"), reset_link)
+            params = {
+                "from": SENDER_EMAIL,
+                "to": [email],
+                "subject": "Password Reset - Spancle",
+                "html": html,
+            }
+            await asyncio.to_thread(resend.Emails.send, params)
+            logger.info(f"Password reset email sent to {email}")
+        except Exception as e:
+            logger.error(f"Failed to send password reset email: {e}")
+    else:
+        logger.info(f"Password reset link (demo mode): {reset_link}")
+
+    return {"message": "If an account with that email exists, a reset link has been sent."}
+
+
+@api_router.post("/auth/reset-password")
+async def reset_password(request: ResetPasswordRequest):
+    record = await db.password_reset_tokens.find_one({
+        "token": request.token,
+        "used": False,
+        "expires_at": {"$gt": datetime.now(timezone.utc)},
+    })
+
+    if not record:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+
+    new_hash = hash_password(request.new_password)
+    await db.users.update_one(
+        {"_id": ObjectId(record["user_id"])},
+        {"$set": {"password_hash": new_hash}},
+    )
+
+    await db.password_reset_tokens.update_one(
+        {"token": request.token},
+        {"$set": {"used": True}},
+    )
+
+    return {"message": "Password has been reset successfully"}
+
+
 # ============ TENANT ENDPOINTS ============
 
 @api_router.post("/tenants")
@@ -548,14 +662,16 @@ async def create_tenant(tenant_data: TenantCreate, user: dict = Depends(get_curr
 @api_router.get("/tenants")
 async def get_tenants(user: dict = Depends(get_current_user)):
     if user["role"] == "super_admin":
-        tenants = await db.tenants.find({}, {"_id": 0}).to_list(100)
-        for tenant in tenants:
-            tenant["id"] = tenant.pop("_id", None)
+        cursor = db.tenants.find({})
+        tenants = []
+        async for tenant in cursor:
+            tenant["id"] = str(tenant.pop("_id"))
+            tenants.append(tenant)
         return tenants
-    elif user["role"] == "tenant_admin":
-        tenant = await db.tenants.find_one({"_id": ObjectId(user["tenant_id"])}, {"_id": 0})
+    elif user["role"] == "tenant_admin" and user.get("tenant_id"):
+        tenant = await db.tenants.find_one({"_id": ObjectId(user["tenant_id"])})
         if tenant:
-            tenant["id"] = user["tenant_id"]
+            tenant["id"] = str(tenant.pop("_id"))
             return [tenant]
     return []
 
@@ -621,7 +737,11 @@ async def get_venues(tenant_id: Optional[str] = Query(None), user: dict = Depend
     else:
         query["tenant_id"] = user["tenant_id"]
     
-    venues = await db.venues.find(query, {"_id": 0}).to_list(100)
+    cursor = db.venues.find(query)
+    venues = []
+    async for venue in cursor:
+        venue["id"] = str(venue.pop("_id"))
+        venues.append(venue)
     return venues
 
 # ============ COURT ENDPOINTS ============
@@ -660,7 +780,11 @@ async def get_courts(venue_id: Optional[str] = Query(None), user: dict = Depends
     if venue_id:
         query["venue_id"] = venue_id
     
-    courts = await db.courts.find(query, {"_id": 0}).to_list(100)
+    cursor = db.courts.find(query)
+    courts = []
+    async for court in cursor:
+        court["id"] = str(court.pop("_id"))
+        courts.append(court)
     return courts
 
 # ============ PRICING ENDPOINTS ============
@@ -698,7 +822,11 @@ async def get_pricing_rules(court_id: Optional[str] = Query(None), user: dict = 
     if court_id:
         query["court_id"] = court_id
     
-    rules = await db.pricing_rules.find(query, {"_id": 0}).to_list(100)
+    cursor = db.pricing_rules.find(query)
+    rules = []
+    async for rule in cursor:
+        rule["id"] = str(rule.pop("_id"))
+        rules.append(rule)
     return rules
 
 # ============ BOOKING ENDPOINTS ============
@@ -760,7 +888,11 @@ async def get_bookings(
     if date:
         query["date"] = date
     
-    bookings = await db.bookings.find(query, {"_id": 0}).sort("date", -1).to_list(100)
+    cursor = db.bookings.find(query).sort("date", -1)
+    bookings = []
+    async for booking in cursor:
+        booking["id"] = str(booking.pop("_id"))
+        bookings.append(booking)
     return bookings
 
 # ============ CUSTOMER ENDPOINTS ============
@@ -778,7 +910,11 @@ async def create_customer(customer_data: CustomerCreate, user: dict = Depends(ge
 @api_router.get("/customers")
 async def get_customers(user: dict = Depends(get_current_user)):
     query = {"tenant_id": user.get("tenant_id")}
-    customers = await db.customers.find(query, {"_id": 0}).to_list(100)
+    cursor = db.customers.find(query)
+    customers = []
+    async for customer in cursor:
+        customer["id"] = str(customer.pop("_id"))
+        customers.append(customer)
     return customers
 
 # ============ PAYMENT ENDPOINTS ============

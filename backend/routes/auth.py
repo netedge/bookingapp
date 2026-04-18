@@ -11,7 +11,7 @@ from auth import (
     set_auth_cookies, get_current_user,
 )
 from config import FRONTEND_URL
-from models import LoginRequest, RegisterRequest, ForgotPasswordRequest, ResetPasswordRequest
+from models import LoginRequest, RegisterRequest, ForgotPasswordRequest, ResetPasswordRequest, TenantRegisterRequest
 from email_service import send_password_reset_email
 from bson import ObjectId
 
@@ -69,6 +69,51 @@ async def register(request: RegisterRequest, response: Response):
     set_auth_cookies(response, access_token, refresh_token)
 
     return {"id": user_id, "email": email, "name": request.name, "role": request.role, "tenant_id": request.tenant_id}
+
+
+@router.post("/register-tenant")
+async def register_tenant(request: TenantRegisterRequest, response: Response):
+    """Self-serve tenant registration: creates tenant + tenant_admin user in one step."""
+    email = request.email.lower()
+    subdomain = request.subdomain.lower().strip()
+
+    existing_user = await db.users.find_one({"email": email})
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    existing_tenant = await db.tenants.find_one({"subdomain": subdomain})
+    if existing_tenant:
+        raise HTTPException(status_code=400, detail="Subdomain already taken")
+
+    tenant_doc = {
+        "business_name": request.business_name,
+        "subdomain": subdomain,
+        "logo_url": None,
+        "primary_color": "#059669",
+        "timezone": "UTC",
+        "currency": "USD",
+        "created_at": datetime.now(timezone.utc),
+        "status": "active",
+    }
+    tenant_result = await db.tenants.insert_one(tenant_doc)
+    tenant_id = str(tenant_result.inserted_id)
+
+    user_data = {
+        "email": email,
+        "password_hash": hash_password(request.password),
+        "name": request.name,
+        "role": "tenant_admin",
+        "tenant_id": tenant_id,
+        "created_at": datetime.now(timezone.utc),
+    }
+    result = await db.users.insert_one(user_data)
+    user_id = str(result.inserted_id)
+
+    access_token = create_access_token(user_id, email, "tenant_admin")
+    refresh_token = create_refresh_token(user_id)
+    set_auth_cookies(response, access_token, refresh_token)
+
+    return {"id": user_id, "email": email, "name": request.name, "role": "tenant_admin", "tenant_id": tenant_id}
 
 
 @router.post("/login")

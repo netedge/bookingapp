@@ -1,0 +1,44 @@
+{
+  "summary": "Tested the new self-serve tenant registration feature (POST /api/auth/register-tenant + updated Register.js). Created /app/backend/tests/test_register_tenant.py with 5 tests — all passed. Frontend Playwright flow (register -> dashboard -> super admin sees new tenant) also passed end-to-end.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "POST /api/auth/register-tenant with unique email+subdomain returns 200, role=tenant_admin, tenant_id present, access_token cookie set",
+    "POST /api/auth/register-tenant with duplicate email returns 400 'Email already registered'",
+    "POST /api/auth/register-tenant with duplicate subdomain returns 400 'Subdomain already taken'",
+    "After register-tenant, super admin GET /api/tenants shows the new tenant with correct business_name+subdomain (no _id leak)",
+    "New user login -> GET /api/auth/me returns role=tenant_admin with correct tenant_id",
+    "Frontend /register: all fields visible (name, email, password, business_name, subdomain) with proper data-testid selectors",
+    "Frontend subdomain input: typing 'UI_REG!!' gets sanitized to 'uireg' (lowercase + strips invalid chars)",
+    "Frontend form submit -> auto-redirects to /dashboard on success",
+    "Frontend: super admin logs in, navigates to Tenants tab, new tenant (business_name + subdomain) is visible in the list"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_register_tenant.py",
+    "/app/test_reports/pytest/register_tenant_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routes/auth.py register_tenant: if the user insert fails after tenant insert, the tenant is orphaned (no transaction/rollback). Low severity since email uniqueness is checked first, but worth noting.",
+    "Subdomain normalization happens server-side (.lower().strip()) which is good. Frontend also sanitizes client-side. No conflict.",
+    "No password length validation on backend for register-tenant (frontend enforces minLength=6 only). Consider adding Pydantic validator for consistency with UX.",
+    "No subdomain format validation on backend (e.g., reject 'admin', 'api', empty, or characters like '.'). Frontend strips to [a-z0-9-] but backend trusts client input. Consider a backend validator."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_register_tenant.py (new)"
+  ],
+  "success_rate": {"backend": "100% (5/5)", "frontend": "100% (all targeted flows passed)"},
+  "test_credentials": "admin@spancle.com / admin123 (super_admin) — verified working",
+  "seed_data_creation": "Tests create tenants with subdomain 'testreg<ts>' and users 'test_tenant_reg_<ts>@example.com'; fixture auto-cleans before+after. UI test also cleaned up post-run (ui_reg_* users and uireg* tenants).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Register-tenant feature fully working end-to-end. Pytest: cd /app && python -m pytest backend/tests/test_register_tenant.py -v. The broader regression suite at backend/tests/backend_test.py (24 tests) was not re-run this iteration — no changes to those routes were made. Iteration_4 minor item (/api/auth/me returns '_id' instead of 'id') is still open but low severity.",
+  "rca of the issue": "Original bug: /register page was creating a user with role=customer only and never creating a tenant, so super admin never saw the new signup in Tenants. Fix verified: new /api/auth/register-tenant endpoint now (1) inserts tenants document with provided business_name+subdomain, (2) inserts users document with role=tenant_admin and tenant_id linking to the new tenant, (3) sets auth cookies. Register.js now collects business_name + subdomain and calls the new endpoint. Duplicate email and duplicate subdomain both return 400 with appropriate messages."
+}

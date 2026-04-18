@@ -15,6 +15,14 @@ class RegisterRequest(BaseModel):
     tenant_id: Optional[str] = None
 
 
+class TenantRegisterRequest(BaseModel):
+    email: EmailStr
+    password: str
+    name: str
+    business_name: str
+    subdomain: str
+
+
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
 

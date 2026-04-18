@@ -39,7 +39,13 @@ const Register = () => {
       navigate('/dashboard');
     } catch (err) {
       const detail = err.response?.data?.detail;
-      setError(typeof detail === 'string' ? detail : 'Something went wrong. Please try again.');
+      if (typeof detail === 'string') {
+        setError(detail);
+      } else if (Array.isArray(detail)) {
+        setError(detail.map(e => e?.msg || JSON.stringify(e)).join('. '));
+      } else {
+        setError(err.message || 'Something went wrong. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

@@ -1,3 +1,4 @@
+import re
 import secrets
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any
@@ -71,11 +72,25 @@ async def register(request: RegisterRequest, response: Response):
     return {"id": user_id, "email": email, "name": request.name, "role": request.role, "tenant_id": request.tenant_id}
 
 
+RESERVED_SUBDOMAINS = {"admin", "api", "www", "app", "mail", "ftp", "dashboard", "login", "register", "public", "static"}
+
 @router.post("/register-tenant")
 async def register_tenant(request: TenantRegisterRequest, response: Response):
     """Self-serve tenant registration: creates tenant + tenant_admin user in one step."""
     email = request.email.lower()
     subdomain = request.subdomain.lower().strip()
+
+    if len(request.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+
+    if not subdomain or len(subdomain) < 3:
+        raise HTTPException(status_code=400, detail="Subdomain must be at least 3 characters")
+
+    if not re.match(r'^[a-z0-9][a-z0-9-]*[a-z0-9]$', subdomain) and len(subdomain) > 2:
+        raise HTTPException(status_code=400, detail="Subdomain can only contain lowercase letters, numbers, and hyphens")
+
+    if subdomain in RESERVED_SUBDOMAINS:
+        raise HTTPException(status_code=400, detail="This subdomain is reserved. Please choose another.")
 
     existing_user = await db.users.find_one({"email": email})
     if existing_user:

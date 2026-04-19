@@ -61,8 +61,13 @@ async def create_pricing_rule(pricing_data: PricingRuleCreate, user: dict = Depe
 
 
 @router.get("/pricing")
-async def get_pricing_rules(court_id: Optional[str] = Query(None), user: dict = Depends(get_current_user)):
-    query = {"tenant_id": user.get("tenant_id")}
+async def get_pricing_rules(court_id: Optional[str] = Query(None), tenant_id: Optional[str] = Query(None), user: dict = Depends(get_current_user)):
+    query = {}
+    if user["role"] == "super_admin":
+        if tenant_id:
+            query["tenant_id"] = tenant_id
+    else:
+        query["tenant_id"] = user.get("tenant_id")
     if court_id:
         query["court_id"] = court_id
 

@@ -36,8 +36,13 @@ async def create_court(court_data: CourtCreate, user: dict = Depends(get_current
 
 
 @router.get("/courts")
-async def get_courts(venue_id: Optional[str] = Query(None), user: dict = Depends(get_current_user)):
-    query = {"tenant_id": user.get("tenant_id")}
+async def get_courts(venue_id: Optional[str] = Query(None), tenant_id: Optional[str] = Query(None), user: dict = Depends(get_current_user)):
+    query = {}
+    if user["role"] == "super_admin":
+        if tenant_id:
+            query["tenant_id"] = tenant_id
+    else:
+        query["tenant_id"] = user.get("tenant_id")
     if venue_id:
         query["venue_id"] = venue_id
 

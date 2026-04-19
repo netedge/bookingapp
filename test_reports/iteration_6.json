@@ -1,0 +1,56 @@
+{
+  "summary": "Verified the two P2 changes: (1) super_admin global view on GET /api/courts, /api/customers, /api/pricing with optional ?tenant_id= filter, and (2) FastAPI lifespan migration. Added /app/backend/tests/test_super_admin_global_view.py with 18 tests — all passed. Frontend smoke: super admin logs in, dashboard + Courts tab load without errors.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Super Admin → Courts tab", "issues": ["The Courts page gates rendering behind a 'Select a venue' dropdown, so super_admin does not see cross-tenant courts on this screen without first picking a venue. Backend API now correctly returns all courts across tenants; the UI doesn't yet surface a 'no venue filter' / 'all tenants' view. Low priority UX enhancement, not a blocking bug."]}
+    ]
+  },
+  "passed_tests": [
+    "GET /api/courts as super_admin (no tenant_id) aggregates courts from >=2 tenants (Elite + newly seeded TEST tenant)",
+    "GET /api/courts?tenant_id=<elite> as super_admin returns only Elite courts",
+    "GET /api/customers as super_admin returns list (may be empty) without error, no _id leak",
+    "GET /api/customers?tenant_id=<elite> as super_admin filters correctly",
+    "GET /api/pricing as super_admin returns list without error, no _id leak",
+    "GET /api/pricing?tenant_id=<elite> as super_admin filters correctly",
+    "GET /api/courts as tenant_admin (elite@test.com) returns only Elite courts",
+    "GET /api/customers as tenant_admin returns only Elite customers",
+    "tenant_admin cannot bypass scoping by passing ?tenant_id=<other_tenant> (scoping still enforced by user.tenant_id)",
+    "Lifespan: backend logs show 'Spancle backend started'",
+    "Lifespan: users.email unique index exists",
+    "Lifespan: tenants.subdomain unique index exists",
+    "Lifespan: password_reset_tokens TTL index (expireAfterSeconds) exists",
+    "Lifespan: super_admin seeded, bcrypt hash starts with $2b$, login works",
+    "Regression: POST /api/auth/register-tenant still returns 200 + role=tenant_admin",
+    "Regression: POST /api/auth/forgot-password returns 200",
+    "Regression: GET /api/tenants, /api/venues, /api/bookings all return 200 for super_admin",
+    "Frontend: super admin /login -> /dashboard redirect works, Courts nav clickable, no page errors"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_super_admin_global_view.py",
+    "/app/test_reports/pytest/super_admin_global_view.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routes/customers.py POST /customers does not enforce tenant_id from user for non-super_admin — a tenant_admin could POST with an arbitrary tenant_id in the body (or omit it entirely) and the document would be stored with whatever client sent. Compare with courts.py/qr.py which correctly override tenant_id from user context. Recommend mirroring the pattern: `if user['role'] != 'super_admin': customer_doc['tenant_id'] = user['tenant_id']` and require tenant_id for super_admin. Not tested as an exploit in this iteration but is a clear data-integrity gap.",
+    "routes/courts.py GET /courts accepts ?tenant_id from tenant_admin but silently ignores it (still scoped to user.tenant_id). This is safe but could be surprising; consider returning 400 if tenant_admin explicitly passes a different tenant_id, or at least document the behavior.",
+    "server.py lifespan: `client.close()` is sync on AsyncIOMotorClient in recent motor versions (returns None). Safe but consider `await client.close()` for clarity / future compatibility.",
+    "qr.py uses `bson.ObjectId` on user-supplied venue_id without try/except — passing a malformed id to /qr-code/{venue_id} will raise InvalidId -> 500 instead of 400/404. Minor.",
+    "Frontend Courts Management tab requires venue selection before rendering courts; for super_admin it would be useful to add an 'All tenants / all venues' view (now that the backend supports it)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_super_admin_global_view.py (new)"
+  ],
+  "success_rate": {"backend": "100% (18/18)", "frontend": "100% (login + dashboard + Courts nav)"},
+  "test_credentials": "admin@spancle.com / admin123 (super_admin) and elite@test.com / test123 (tenant_admin) — both verified working",
+  "seed_data_creation": "Created a second TEST tenant (subdomain testsuper<ts>) with a TEST_V_ venue and TEST_Court_ court to prove cross-tenant aggregation on /api/courts. Cleanup fixture deletes all business_name=/^TEST/ tenants + their venues/courts/users and email=/^TEST_/ users after the module runs.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "New test file: /app/backend/tests/test_super_admin_global_view.py (18 tests, ~3s). Run with: cd /app && python -m pytest backend/tests/test_super_admin_global_view.py -v. Open code-review item worth flagging to main agent: POST /api/customers does NOT override tenant_id from user context (unlike courts/pricing). Consider adding a test that a tenant_admin cannot POST /customers with a different tenant_id.",
+  "rca of the issue": "Not a bug fix iteration — validating two enhancements. (1) Courts/customers/pricing GET handlers now branch on role: super_admin either returns all docs or filters by optional ?tenant_id query param; other roles stay hard-scoped to user.tenant_id. Confirmed by creating a 2nd tenant + court and observing both appear for super_admin but not for elite@test.com. (2) Lifespan: @app.on_event deprecation replaced by @asynccontextmanager lifespan in server.py. Indexes + admin seeding verified via direct Mongo inspection; backend log shows 'Spancle backend started'."
+}

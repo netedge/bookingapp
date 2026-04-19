@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
+from typing import Optional
 
 from database import db
 from auth import get_current_user
@@ -17,8 +18,13 @@ async def create_customer(customer_data: CustomerCreate, user: dict = Depends(ge
 
 
 @router.get("/customers")
-async def get_customers(user: dict = Depends(get_current_user)):
-    query = {"tenant_id": user.get("tenant_id")}
+async def get_customers(tenant_id: Optional[str] = Query(None), user: dict = Depends(get_current_user)):
+    query = {}
+    if user["role"] == "super_admin":
+        if tenant_id:
+            query["tenant_id"] = tenant_id
+    else:
+        query["tenant_id"] = user.get("tenant_id")
     customers = []
     async for customer in db.customers.find(query):
         customer["id"] = str(customer.pop("_id"))

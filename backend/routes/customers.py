@@ -13,6 +13,8 @@ router = APIRouter(tags=["customers"])
 @router.post("/customers")
 async def create_customer(customer_data: CustomerCreate, user: dict = Depends(get_current_user)):
     customer_doc = {**customer_data.model_dump(), "created_at": datetime.now(timezone.utc)}
+    if user["role"] != "super_admin":
+        customer_doc["tenant_id"] = user["tenant_id"]
     result = await db.customers.insert_one(customer_doc)
     return {"id": str(result.inserted_id), **customer_data.model_dump()}
 

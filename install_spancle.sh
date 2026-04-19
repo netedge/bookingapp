@@ -50,7 +50,7 @@ fi
 header "Spancle Installation Configuration"
 
 # Defaults
-INSTALL_DIR="/opt/spancle"
+INSTALL_DIR="/var/www/spancle/bookingapp"
 DOMAIN=""
 ADMIN_EMAIL="admin@spancle.com"
 ADMIN_PASSWORD="admin123"
